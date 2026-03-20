@@ -142,6 +142,8 @@ In progress.
 - Bug fix from first live opening:
   - restored missing `getExtractedComponent(...)` helper in `index.html`
   - this likely caused the blank-screen failure in the ops app while kiosk still rendered
+- Branding change requested by Steve:
+  - rename visible product/app branding from `Smart Arrival` to `AirBoss`
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
