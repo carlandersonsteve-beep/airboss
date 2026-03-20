@@ -232,20 +232,22 @@
                 Storage.set('fbo_messages', messages);
             }, [messages]);
 
+            const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => ({
+                id: Date.now().toString(),
+                text,
+                sender,
+                orderId,
+                tailNumber,
+                createdAt: new Date().toISOString(),
+            });
+
+            const appendMessageRecord = (messageRecord) => {
+                setMessages(prev => [...prev, messageRecord]);
+                return messageRecord;
+            };
+
             const addMessage = (text, sender, orderId = null, tailNumber = null) => {
-                const msg = {
-                    id: Date.now().toString(),
-                    text,
-                    sender, // 'RAMP' or 'OFFICE'
-                    orderId,
-                    tailNumber,
-                    createdAt: new Date().toISOString(),
-                };
-                setMessages(prev => {
-                    const updated = [...prev, msg];
-                    Storage.set('fbo_messages', updated);
-                    return updated;
-                });
+                return appendMessageRecord(createMessageRecord(text, sender, orderId, tailNumber));
             };
 
             const markChatRead = () => {
@@ -255,19 +257,21 @@
             };
             // === MESSAGING FEATURE END ===
 
+            const createCustomerRecord = (customer) => ({
+                ...customer,
+                id: Date.now().toString(),
+                createdAt: new Date().toISOString()
+            });
+
             const addCustomer = (customer) => {
-                const newCustomer = {
-                    ...customer,
-                    id: Date.now().toString(),
-                    createdAt: new Date().toISOString()
-                };
-                setCustomers([...customers, newCustomer]);
+                const newCustomer = createCustomerRecord(customer);
+                setCustomers(prev => [...prev, newCustomer]);
                 syncToSheets('addCustomer', { customer: newCustomer });
                 return newCustomer;
             };
 
             const updateCustomer = (id, updates) => {
-                setCustomers(customers.map(c => c.id === id ? { ...c, ...updates } : c));
+                setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
             };
 
             const createOrderRecord = (order) => ({
@@ -346,22 +350,25 @@
                 transitionOrder(orderId, newStatus);
             };
 
+            const createTicketRecord = (ticket) => ({
+                ...ticket,
+                id: Date.now().toString(),
+                createdAt: new Date().toISOString(),
+                status: 'pending'
+            });
+
             const addTicket = (ticket) => {
-                const newTicket = {
-                    ...ticket,
-                    id: Date.now().toString(),
-                    createdAt: new Date().toISOString(),
-                    status: 'pending'
-                };
-                setTickets([...tickets, newTicket]);
+                const newTicket = createTicketRecord(ticket);
+                setTickets(prev => [...prev, newTicket]);
+                return newTicket;
             };
 
             const resolveTicket = (ticketId) => {
-                setTickets(tickets.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t));
+                setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t));
             };
 
             const deleteTicket = (ticketId) => {
-                setTickets(tickets.filter(t => t.id !== ticketId));
+                setTickets(prev => prev.filter(t => t.id !== ticketId));
             };
 
             const exportData = () => {
