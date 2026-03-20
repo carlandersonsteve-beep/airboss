@@ -63,6 +63,18 @@ In progress.
   - week orders
   - fuel totals
 - Replaced more duplicated inline filtering/counting logic in `index.html` with those centralized helper functions
+- Added service-style order transition helpers directly inside `index.html` as an intermediate bridge for:
+  - create order record
+  - transition order
+  - start order service
+  - mark order ready for front desk
+  - close order
+- Routed the most contained order actions through these helper functions:
+  - ramp start service
+  - fuel verification start
+  - ramp complete/no-fuel complete
+  - front desk finalize/close
+  - recall continues through centralized transition handling
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -76,13 +88,14 @@ In progress.
   - `closed`
 - Legacy statuses are now partially normalized in `index.html` through compatibility helpers
 - Selector logic is beginning to move out of repeated inline expressions
-- Most storage, sync, and workflow behavior is still embedded in the old app flow and needs to be migrated incrementally
+- Core order transitions are beginning to move out of ad hoc inline handlers
+- Most storage, sync, and communication behavior is still embedded in the old app flow and needs to be migrated incrementally
 
 ## Next Recommended Steps
-1. Start routing order transitions through service-style functions instead of direct inline mutation
-2. Start routing customer/ticket/message writes through service/repository layers
+1. Route customer/ticket/message writes through service/repository layers
+2. Reduce direct localStorage usage in `index.html`
 3. Move Google sync and backup logic behind the new sync layer wrappers
-4. Continue reducing direct localStorage access in `index.html`
+4. Continue replacing ad hoc mutation logic with centralized helper/service flows
 5. Once behavior is routed through the new spine, split more UI components out of the single-file HTML
 6. Make a checkpoint commit after each meaningful wiring milestone
 
@@ -92,6 +105,7 @@ In progress.
 - Existing UI still contains embedded sync logic
 - New files are scaffold-level and only partly integrated into live behavior
 - Compatibility mode is useful now, but should not become permanent architectural debt
+- Intermediate in-file service helpers are a bridge, not the desired end state
 
 ## Decision Log
 - Do not rewrite from scratch
@@ -102,6 +116,7 @@ In progress.
 - Put the project under git before making larger behavioral changes
 - Use a compatibility pass to bridge legacy and canonical status models during transition
 - Use in-file selector helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderSelectors.js`
+- Use in-file transition helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderService.js`
 
 ## If Starting Fresh Next Session
 Read in this order:

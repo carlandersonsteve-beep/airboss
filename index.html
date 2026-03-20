@@ -270,13 +270,60 @@
                 setCustomers(customers.map(c => c.id === id ? { ...c, ...updates } : c));
             };
 
+            const createOrderRecord = (order) => ({
+                ...order,
+                id: Date.now().toString(),
+                createdAt: new Date().toISOString(),
+                status: order.status || 'pending'
+            });
+
+            const backupOrderUpdate = (updatedOrder) => {
+                try {
+                    const formData = new FormData();
+                    formData.append('entry.766632014', JSON.stringify({
+                        type: 'order-update',
+                        timestamp: new Date().toISOString(),
+                        order: updatedOrder
+                    }));
+                    fetch('https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse', {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: formData
+                    });
+                } catch (e) { }
+            };
+
+            const transitionOrder = (orderId, nextStatus, extraFields = {}) => {
+                setOrders(currentOrders => currentOrders.map(o => {
+                    if (o.id !== orderId) return o;
+                    const updated = {
+                        ...o,
+                        status: nextStatus,
+                        statusUpdatedAt: new Date().toISOString(),
+                        ...extraFields
+                    };
+                    backupOrderUpdate(updated);
+                    return updated;
+                }));
+            };
+
+            const startOrderService = (orderId) => {
+                transitionOrder(orderId, 'in-progress');
+            };
+
+            const markOrderReadyForFrontDesk = (orderId, extraFields = {}) => {
+                transitionOrder(orderId, 'ready', {
+                    ...extraFields,
+                    completedAt: new Date().toISOString(),
+                });
+            };
+
+            const closeOrder = (orderId) => {
+                transitionOrder(orderId, 'finalized');
+            };
+
             const addOrder = (order) => {
-                const newOrder = {
-                    ...order,
-                    id: Date.now().toString(),
-                    createdAt: new Date().toISOString(),
-                    status: order.status || 'pending'
-                };
+                const newOrder = createOrderRecord(order);
                 setOrders([...orders, newOrder]);
                 setShowNewOrder(false);
                 setSelectedCustomer(null);
@@ -284,29 +331,7 @@
             };
 
             const updateOrderStatus = (orderId, status, extraFields = {}) => {
-                setOrders(orders.map(o => {
-                    if (o.id === orderId) {
-                        const updated = { ...o, status, statusUpdatedAt: new Date().toISOString(), ...extraFields };
-                        
-                        // Backup to Google Forms
-                        try {
-                            const formData = new FormData();
-                            formData.append('entry.766632014', JSON.stringify({
-                                type: 'order-update',
-                                timestamp: new Date().toISOString(),
-                                order: updated
-                            }));
-                            fetch('https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse', {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                body: formData
-                            });
-                        } catch (e) { }
-                        
-                        return updated;
-                    }
-                    return o;
-                }));
+                transitionOrder(orderId, status, extraFields);
             };
 
             // Recall function - moves order back one step in workflow
@@ -318,7 +343,7 @@
                 if (isReadyStatus(order.status)) newStatus = 'in-progress'; // Front desk recalls to ramp
                 else if (isClosedStatus(order.status)) newStatus = 'ready'; // Archive recalls to front desk
                 
-                updateOrderStatus(orderId, newStatus);
+                transitionOrder(orderId, newStatus);
             };
 
             const addTicket = (ticket) => {
@@ -554,6 +579,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 addTicket={addTicket}
                                 messages={messages}
                                 addMessage={(text, orderId, tailNumber) => addMessage(text, 'RAMP', orderId, tailNumber)}
+                                startOrderService={startOrderService}
+                                markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
                             />
                         )}
                         {view === 'office' && (
@@ -568,6 +595,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 generateCompletionEmail={generateCompletionEmail}
                                 messages={messages}
                                 addMessage={(text, orderId, tailNumber) => addMessage(text, 'OFFICE', orderId, tailNumber)}
+                                closeOrder={closeOrder}
                             />
                         )}
                         {/* === MESSAGING FEATURE START === */}
@@ -627,7 +655,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             );
         }
 
-        function RampView({ customers, orders, tickets, onNewOrder, onNewCustomer, onQuickFuel, updateOrderStatus, addTicket, messages, addMessage }) {
+        function RampView({ customers, orders, tickets, onNewOrder, onNewCustomer, onQuickFuel, updateOrderStatus, addTicket, messages, addMessage, startOrderService, markOrderReadyForFrontDesk }) {
             const todayOrders = getTodayOrders(orders);
 
             // Ramp only sees pending and in-progress work for today.
@@ -705,6 +733,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             addTicket={addTicket}
                                             messages={messages}
                                             addMessage={addMessage}
+                                            startOrderService={startOrderService}
+                                            markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
                                         />
                                     );
                                 })}
@@ -1100,7 +1130,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             );
         }
 
-        function OrderCard({ order, customer, updateOrderStatus, addTicket, messages, addMessage }) {
+        function OrderCard({ order, customer, updateOrderStatus, addTicket, messages, addMessage, startOrderService, markOrderReadyForFrontDesk }) {
             const [editedFuel, setEditedFuel] = useState(order.fuelQuantity || 0);
             const [editedServices, setEditedServices] = useState(order.services || []);
             const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -1140,10 +1170,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 syncToSheets('updateOrder', { order: updatedOrder });
                 
                 // Update status in parent — pass all fields so React state stays in sync
-                updateOrderStatus(order.id, 'ready', {
+                markOrderReadyForFrontDesk(order.id, {
                     fuelQuantity: actualFuel ? parseInt(actualFuel) : order.fuelQuantity,
                     completionNotes: completionNotes || '',
-                    completedAt: new Date().toISOString(),
                 });
                 setShowCompleteModal(false);
             };
@@ -1224,7 +1253,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <div className="flex gap-2">
                         {isPendingStatus(order.status) && (
                             <button
-                                onClick={() => order.fuelType ? setShowFuelVerify(true) : updateOrderStatus(order.id, 'in-progress')}
+                                onClick={() => order.fuelType ? setShowFuelVerify(true) : startOrderService(order.id)}
                                 className="mustang-red mustang-red-hover text-white px-4 py-2 rounded text-sm font-medium transition"
                             >
                                 ▶️ Start Service
@@ -1240,7 +1269,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         )}
                         {isInProgressStatus(order.status) && !order.fuelType && (
                             <button
-                                onClick={() => updateOrderStatus(order.id, 'ready')}
+                                onClick={() => markOrderReadyForFrontDesk(order.id)}
                                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition"
                             >
                                 ✅ Complete (No Fuel)
@@ -1278,7 +1307,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                                     if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
                                                         setFuelVerified(true);
                                                         setShowFuelVerify(false);
-                                                        updateOrderStatus(order.id, 'in-progress');
+                                                        startOrderService(order.id);
                                                     } else {
                                                         setFuelVerifyError(true);
                                                         setFuelTypeInput('');
@@ -1304,7 +1333,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                                 if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
                                                     setFuelVerified(true);
                                                     setShowFuelVerify(false);
-                                                    updateOrderStatus(order.id, 'in-progress');
+                                                    startOrderService(order.id);
                                                 } else {
                                                     setFuelVerifyError(true);
                                                     setFuelTypeInput('');
@@ -1332,7 +1361,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             );
         }
 
-        function OfficeView({ orders, customers, tickets, updateOrderStatus, recallOrder, resolveTicket, deleteTicket, generateCompletionEmail, messages, addMessage }) {
+        function OfficeView({ orders, customers, tickets, updateOrderStatus, recallOrder, resolveTicket, deleteTicket, generateCompletionEmail, messages, addMessage, closeOrder }) {
             const [filter, setFilter] = useState('today'); // 'today', 'week', 'all', 'archive'
             
             const pendingTickets = tickets.filter(t => t.status === 'pending');
@@ -1503,7 +1532,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                                         📧 Email Customer
                                                     </button>
                                                     <button
-                                                        onClick={() => updateOrderStatus(order.id, 'finalized')}
+                                                        onClick={() => closeOrder(order.id)}
                                                         className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition"
                                                     >
                                                         ✅ Finalize & Archive
