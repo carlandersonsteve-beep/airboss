@@ -90,6 +90,10 @@ In progress.
   - Google Sheets sync calls
   - Google Forms JSON payload backup calls
 - Replaced direct sync call sites to use these adapters instead of embedding raw fetch behavior in multiple places
+- Added `src/app/browserRuntime.js` as a browser-safe runtime bridge for local-first use without a build system
+- Routed live order selector behavior through `window.AirBossRuntime.orderSelectors`
+- Routed live order service behavior through `window.AirBossRuntime.orderService`
+- Made `index.html` load the browser runtime bridge before the Babel app script
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -102,25 +106,27 @@ In progress.
   - `ready_for_front_desk`
   - `closed`
 - Legacy statuses are now partially normalized in `index.html` through compatibility helpers
-- Selector logic is beginning to move out of repeated inline expressions
-- Core order transitions are beginning to move out of ad hoc inline handlers
+- Selector logic is now bridging through the browser runtime layer
+- Core order transitions are now bridging through the browser runtime layer
 - Message/customer/ticket writes are cleaner and more centralized now, but still not routed through imported `src/` modules yet
-- Storage boundaries are improving, and sync boundaries are now improving too
+- Storage boundaries are improving, and sync boundaries are improving too
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
+- Browser runtime bridging is the current strategy for using `src/` concepts without introducing a build system too early
 
 ## Next Recommended Steps
-1. Bridge sync adapter behavior toward the actual `src/data/sync/*` modules
-2. Begin bridging selected live behaviors to actual `src/` service/repository modules
+1. Expand browser runtime bridging for additional service/repository behaviors where useful
+2. Decide whether to target kiosk bridging next or begin extracting UI chunks from `index.html`
 3. Continue shrinking `index.html` responsibility without breaking local-first testing
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
-5. Once behavior is routed through the new spine, split more UI components out of the single-file HTML
+5. Once behavior is routed through the new spine more broadly, split more UI components out of the single-file HTML
 6. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
 - New files are scaffold-level and only partly integrated into live behavior
 - Compatibility mode is useful now, but should not become permanent architectural debt
-- Intermediate in-file helpers are a bridge, not the desired end state
+- Intermediate in-file helpers and browser runtime bridges are transitional, not the final end state
+- There is still no build system, so module reuse is constrained by browser loading realities
 
 ## Decision Log
 - Do not rewrite from scratch
@@ -135,6 +141,7 @@ In progress.
 - Use in-file record helpers as an intermediate bridge before fully routing writes through customer/ticket/message services
 - Keep AirBoss local-first for testing until workflow quality is proven
 - Use in-file sync adapters as an intermediate bridge before fully routing sync behavior through `src/data/sync/*`
+- Use a browser runtime bridge to start consuming `src/` architecture concepts without adding a build system yet
 
 ## If Starting Fresh Next Session
 Read in this order:

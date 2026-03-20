@@ -118,6 +118,7 @@
 <body class="bg-gray-50">
     <div id="root"></div>
 
+    <script src="src/app/browserRuntime.js"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -173,38 +174,22 @@
             }
         };
 
-        const normalizeOrderStatus = (status) => {
-            const map = {
-                'pending': 'pending',
-                'in-progress': 'in_progress',
-                'in_progress': 'in_progress',
-                'ready': 'ready_for_front_desk',
-                'ready_for_front_desk': 'ready_for_front_desk',
-                'completed': 'ready_for_front_desk',
-                'finalized': 'closed',
-                'closed': 'closed'
-            };
-            return map[status] || status;
-        };
+        const runtime = window.AirBossRuntime;
+        const normalizeOrderStatus = (status) => runtime.normalizeOrderStatus(status);
 
         const isPendingStatus = (status) => normalizeOrderStatus(status) === 'pending';
         const isInProgressStatus = (status) => normalizeOrderStatus(status) === 'in_progress';
         const isReadyStatus = (status) => normalizeOrderStatus(status) === 'ready_for_front_desk';
         const isClosedStatus = (status) => normalizeOrderStatus(status) === 'closed';
         const isActiveRampStatus = (status) => isPendingStatus(status) || isInProgressStatus(status);
-        const isSameDay = (dateA, dateB) => new Date(dateA).toDateString() === new Date(dateB).toDateString();
-        const getTodayOrders = (orders, now = new Date()) => (orders || []).filter(o => o.createdAt && isSameDay(o.createdAt, now));
-        const getActiveRampOrders = (orders, now = new Date()) => getTodayOrders(orders, now).filter(o => isActiveRampStatus(o.status));
-        const getReadyForFrontDeskOrders = (orders) => (orders || []).filter(o => isReadyStatus(o.status));
-        const getClosedOrders = (orders) => (orders || []).filter(o => isClosedStatus(o.status));
-        const getWeekOrders = (orders, now = new Date()) => {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return (orders || []).filter(o => new Date(o.createdAt) >= weekAgo);
-        };
-        const getFuelTotal = (orders, fuelType) => (orders || []).reduce((sum, o) => {
-            const qty = Number(o.fuelQuantity || o.fuelActualGallons || 0);
-            return (o.fuelType || '').toUpperCase() === fuelType ? sum + qty : sum;
-        }, 0);
+        const getTodayOrders = (orders, now = new Date()) => runtime.orderSelectors.today(orders, now);
+        const getActiveRampOrders = (orders, now = new Date()) => runtime.orderSelectors.activeRamp(orders, now);
+        const getReadyForFrontDeskOrders = (orders) => runtime.orderSelectors.readyForFrontDesk(orders);
+        const getClosedOrders = (orders) => runtime.orderSelectors.closed(orders);
+        const getWeekOrders = (orders, now = new Date()) => runtime.orderSelectors.thisWeek(orders, now);
+        const getFuelTotal = (orders, fuelType) => (
+            fuelType === 'JET-A' ? runtime.orderSelectors.jetATotal(orders) : runtime.orderSelectors.avgasTotal(orders)
+        );
 
         const buildExportSnapshot = ({ customers, orders, tickets, messages }) => ({
             customers,
@@ -304,12 +289,7 @@
                 setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
             };
 
-            const createOrderRecord = (order) => ({
-                ...order,
-                id: Date.now().toString(),
-                createdAt: new Date().toISOString(),
-                status: order.status || 'pending'
-            });
+            const createOrderRecord = (order) => runtime.orderService.createOrderPayload(order);
 
             const persistOrderPatch = (orderId, patch) => {
                 setOrders(currentOrders => currentOrders.map(o => o.id === orderId ? { ...o, ...patch } : o));
@@ -323,33 +303,25 @@
                 syncAdapters.backupJsonPayload('order-update', { order: updatedOrder });
             };
 
-            const transitionOrder = (orderId, nextStatus, extraFields = {}) => {
+            const transitionOrder = (orderId, transitionFn) => {
                 setOrders(currentOrders => currentOrders.map(o => {
                     if (o.id !== orderId) return o;
-                    const updated = {
-                        ...o,
-                        status: nextStatus,
-                        statusUpdatedAt: new Date().toISOString(),
-                        ...extraFields
-                    };
+                    const updated = transitionFn(o);
                     backupOrderUpdate(updated);
                     return updated;
                 }));
             };
 
             const startOrderService = (orderId) => {
-                transitionOrder(orderId, 'in-progress');
+                transitionOrder(orderId, (order) => runtime.orderService.startService(order));
             };
 
             const markOrderReadyForFrontDesk = (orderId, extraFields = {}) => {
-                transitionOrder(orderId, 'ready', {
-                    ...extraFields,
-                    completedAt: new Date().toISOString(),
-                });
+                transitionOrder(orderId, (order) => runtime.orderService.completeService(order, extraFields));
             };
 
             const closeOrder = (orderId) => {
-                transitionOrder(orderId, 'finalized');
+                transitionOrder(orderId, (order) => runtime.orderService.closeOrder(order));
             };
 
             const addOrder = (order) => {
@@ -361,19 +333,12 @@
             };
 
             const updateOrderStatus = (orderId, status, extraFields = {}) => {
-                transitionOrder(orderId, status, extraFields);
+                transitionOrder(orderId, (order) => runtime.orderService.transition(order, status, extraFields));
             };
 
             // Recall function - moves order back one step in workflow
             const recallOrder = (orderId) => {
-                const order = orders.find(o => o.id === orderId);
-                if (!order) return;
-                
-                let newStatus = order.status;
-                if (isReadyStatus(order.status)) newStatus = 'in-progress'; // Front desk recalls to ramp
-                else if (isClosedStatus(order.status)) newStatus = 'ready'; // Archive recalls to front desk
-                
-                transitionOrder(orderId, newStatus);
+                transitionOrder(orderId, (order) => runtime.orderService.recallOrder(order));
             };
 
             const createTicketRecord = (ticket) => ({

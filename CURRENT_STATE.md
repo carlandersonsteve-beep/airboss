@@ -4,6 +4,7 @@
 - `index.html` — main Smart Arrival / AirBoss operations interface
 - `kiosk.html` — customer check-in kiosk
 - `src/` — new refactor scaffold for core/data/domain layers
+- `src/app/browserRuntime.js` — browser-safe runtime bridge used by the live local app
 - `WORKLOG.md` — running checkpoint for session continuity
 
 ## Known Current Capabilities
@@ -26,19 +27,20 @@
 - `index.html` has service-style transition helpers for core order actions
 - `index.html` has centralized record-creation/write helpers for messages/customers/tickets
 - `index.html` has reduced some direct localStorage leakage
-- `index.html` now has centralized sync adapters for:
-  - Google Sheets sync
-  - Google Forms JSON backup payloads
+- `index.html` has centralized sync adapters for Google Sheets / Forms backup
+- Live app now loads `src/app/browserRuntime.js`
+- Live app selector logic now bridges through the browser runtime instead of only in-file implementations
+- Live app order service actions now bridge through the browser runtime instead of only in-file implementations
 
 ## Likely Weak Points
-- single-file HTML structure still drives the live app
+- single-file HTML structure still drives the live app UI
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- sync behavior is cleaner now but still in the giant live file rather than routed through `src/data/sync/*`
-- new architecture exists, but most behavior is not yet imported from `src/`
+- browser runtime is a bridge, not the final build/deploy model
+- many live behaviors still have not been routed directly through imported `src/` modules because there is still no build system
 
 ## Immediate Next Focus
-- bridge sync adapter usage toward `src/data/sync/*`
-- begin bridging selected live behaviors to actual `src/` service/repository modules
+- expand the browser runtime bridge for additional service/repository behaviors where useful
+- decide whether to next target kiosk runtime bridging or UI extraction from `index.html`
 - continue shrinking `index.html` responsibility without breaking local-first testing
 - preserve local-first testing while improving reliability and maintainability
