@@ -27,18 +27,19 @@
 - Kiosk creation flow is now runtime-backed instead of fully ad hoc
 - UI extraction phase has begun:
   - `OrderCard.reference.js` created from live code
-  - `OrderCard.js` scaffolded as extraction target
-  - prop contract and extraction plan docs created
+  - `OrderCard.js` scaffold was upgraded into a live external component file
+  - `index.html` now aliases `OrderCard` to `window.AirBossComponents.OrderCard`
+  - dependency bag exposed through `window.AirBossDeps`
 
 ## Likely Weak Points
-- single-file HTML structure still drives both live UIs
+- single-file HTML structure still drives most live UI behavior
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- browser runtime is a bridge, not the final build/deploy model
-- extracted UI files are scaffold/reference stage, not yet wired into the live app
+- extracted UI is now live for `OrderCard`, but broader UI remains inline
+- browser globals/dependency bag are a transitional mechanism, not the final UI module system
 
 ## Immediate Next Focus
-- convert `OrderCard` from reference/scaffold into a live-wired extracted component
+- verify/stabilize the live `OrderCard` extraction path
 - then extract `RampView`
 - keep local-first testing stable while shrinking the HTML files
 - preserve current workflow while improving maintainability

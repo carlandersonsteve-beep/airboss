@@ -101,9 +101,11 @@ In progress.
 - Reduced kiosk schema drift risk by aligning kiosk-created customer/order records more closely with the ops-side runtime model
 - Began UI extraction phase:
   - created `src/ui/ops/components/OrderCard.reference.js` from live code
-  - scaffolded `src/ui/ops/components/OrderCard.js`
+  - scaffolded and then upgraded `src/ui/ops/components/OrderCard.js` into a live external component file
   - documented `OrderCard` prop contract
   - documented UI extraction plan/order
+  - updated `index.html` to alias `OrderCard` to the extracted component via `window.AirBossComponents.OrderCard`
+  - exposed required live dependencies through `window.AirBossDeps`
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -120,11 +122,11 @@ In progress.
 - Core order transitions are now bridging through the browser runtime layer
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
-- UI extraction has started, but extracted components are not yet live-wired
+- `OrderCard` is now the first live-wired extracted UI component
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Convert `OrderCard` from reference/scaffold into a live-wired extracted component
+1. Verify/stabilize the live `OrderCard` extraction path
 2. Extract `RampView` next
 3. Continue shrinking HTML-file responsibility without breaking local-first testing
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
@@ -136,6 +138,7 @@ In progress.
 - Compatibility mode is useful now, but should not become permanent architectural debt
 - Intermediate in-file helpers and browser runtime bridges are transitional, not the final end state
 - There is still no build system, so module reuse is constrained by browser loading realities
+- Browser global dependency wiring (`window.AirBossDeps`) is transitional and should not become permanent architecture
 - UI files remain large enough to hide workflow bugs even though data logic is getting cleaner
 
 ## Decision Log
@@ -154,6 +157,7 @@ In progress.
 - Use a browser runtime bridge to start consuming `src/` architecture concepts without adding a build system yet
 - Keep kiosk and ops aligned so kiosk does not become the schema-drift side door into the system
 - Start UI extraction with `OrderCard`, then `RampView`, then `OfficeView`
+- Use browser globals as a temporary extraction bridge only where needed to safely externalize live UI code
 
 ## If Starting Fresh Next Session
 Read in this order:
