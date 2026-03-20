@@ -99,6 +99,11 @@ In progress.
 - Replaced kiosk ad hoc customer/order payload creation with runtime-backed payload builders
 - Centralized kiosk backup behavior behind a local sync adapter helper
 - Reduced kiosk schema drift risk by aligning kiosk-created customer/order records more closely with the ops-side runtime model
+- Began UI extraction phase:
+  - created `src/ui/ops/components/OrderCard.reference.js` from live code
+  - scaffolded `src/ui/ops/components/OrderCard.js`
+  - documented `OrderCard` prop contract
+  - documented UI extraction plan/order
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -115,13 +120,12 @@ In progress.
 - Core order transitions are now bridging through the browser runtime layer
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
-- Storage boundaries are improving, and sync boundaries are improving too
+- UI extraction has started, but extracted components are not yet live-wired
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
-- Browser runtime bridging is the current strategy for using `src/` architecture concepts without introducing a build system too early
 
 ## Next Recommended Steps
-1. Begin extracting major UI chunks from `index.html`, starting with `OrderCard`, `RampView`, or `OfficeView`
-2. Consider whether kiosk should also start moving step UI logic into smaller chunks
+1. Convert `OrderCard` from reference/scaffold into a live-wired extracted component
+2. Extract `RampView` next
 3. Continue shrinking HTML-file responsibility without breaking local-first testing
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Make a checkpoint commit after each meaningful wiring milestone
@@ -149,6 +153,7 @@ In progress.
 - Use in-file sync adapters as an intermediate bridge before fully routing sync behavior through `src/data/sync/*`
 - Use a browser runtime bridge to start consuming `src/` architecture concepts without adding a build system yet
 - Keep kiosk and ops aligned so kiosk does not become the schema-drift side door into the system
+- Start UI extraction with `OrderCard`, then `RampView`, then `OfficeView`
 
 ## If Starting Fresh Next Session
 Read in this order:

@@ -5,6 +5,7 @@
 - `kiosk.html` — customer check-in kiosk
 - `src/` — new refactor scaffold for core/data/domain layers
 - `src/app/browserRuntime.js` — browser-safe runtime bridge used by the live local app
+- `src/ui/ops/components/*` — first UI extraction targets/scaffolds
 - `WORKLOG.md` — running checkpoint for session continuity
 
 ## Known Current Capabilities
@@ -22,28 +23,22 @@
 - Domain map and refactor structure docs are in place
 - Core constants/workflow/storage layers exist under `src/`
 - Repository and first-pass service layers exist under `src/`
-- `index.html` has a compatibility bridge for legacy + canonical order statuses
-- `index.html` has centralized selector-style helpers for order filtering/counting
-- `index.html` has service-style transition helpers for core order actions
-- `index.html` has centralized record-creation/write helpers for messages/customers/tickets
-- `index.html` has reduced some direct localStorage leakage
-- `index.html` has centralized sync adapters for Google Sheets / Forms backup
-- Live ops app now loads `src/app/browserRuntime.js`
-- Live ops app selector logic, order logic, and customer/ticket/message payload logic bridge through the browser runtime
-- `kiosk.html` now also loads `src/app/browserRuntime.js`
-- Kiosk customer/order creation now uses runtime-backed payload builders instead of ad hoc shape creation
-- Kiosk backup behavior is now centralized behind a sync adapter helper
+- Live ops app and kiosk now bridge behavioral logic through `src/app/browserRuntime.js`
+- Kiosk creation flow is now runtime-backed instead of fully ad hoc
+- UI extraction phase has begun:
+  - `OrderCard.reference.js` created from live code
+  - `OrderCard.js` scaffolded as extraction target
+  - prop contract and extraction plan docs created
 
 ## Likely Weak Points
 - single-file HTML structure still drives both live UIs
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
 - browser runtime is a bridge, not the final build/deploy model
-- UI files are still too large even though behavioral logic is cleaner
-- some kiosk/ops schema duplication remains for compatibility fields like `aircraft` vs `aircraftType`
+- extracted UI files are scaffold/reference stage, not yet wired into the live app
 
 ## Immediate Next Focus
-- decide whether to begin extracting major UI chunks from `index.html` / `kiosk.html`
-- continue shrinking HTML-file responsibility without breaking local-first testing
-- preserve local-first testing while improving reliability and maintainability
-- keep runtime bridging as the path toward eventual modularization
+- convert `OrderCard` from reference/scaffold into a live-wired extracted component
+- then extract `RampView`
+- keep local-first testing stable while shrinking the HTML files
+- preserve current workflow while improving maintainability
