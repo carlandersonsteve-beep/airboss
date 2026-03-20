@@ -29,6 +29,9 @@
   - `OrderCard`
   - `RampView`
   - `OfficeView`
+- Shared extracted support pieces are now also live:
+  - `OrderMessageThread`
+  - `CompletionModal`
 - Stabilization work now includes:
   - explicit extracted-component resolver
   - explicit component dependency validator (`componentBridge.js`)
@@ -38,11 +41,11 @@
 - single-file HTML structure still drives some remaining live UI behavior
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- extracted UI now covers the major ops surfaces, but modals/views remain inline
+- extracted UI now covers the major ops surfaces and two shared pieces, but other modals/views remain inline
 - browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- continue stabilizing the extracted ops surface
-- decide whether the next pass should target shared modals/helpers or the first real review/opening
+- decide whether this is the right first review/opening checkpoint
+- if not, do one more very small stabilization sweep only
 - preserve current workflow while improving maintainability
 - keep local-first testing stable while shrinking remaining inline complexity

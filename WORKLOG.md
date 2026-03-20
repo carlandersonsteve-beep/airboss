@@ -126,6 +126,11 @@ In progress.
   - added `src/ui/ops/components/componentBridge.js`
   - extracted components now validate required dependencies explicitly via `window.AirBossComponentBridge.requireDeps(...)`
   - loading order updated so the bridge helper exists before extracted Babel components run
+- Continued stabilization again:
+  - extracted `OrderMessageThread` into `src/ui/ops/components/OrderMessageThread.js`
+  - extracted `CompletionModal` into `src/ui/ops/components/CompletionModal.js`
+  - replaced inline versions in `index.html` with extracted-component aliases
+  - reduced hidden coupling between extracted ops components and the remaining inline monolith
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -143,15 +148,15 @@ In progress.
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
 - `OrderCard`, `RampView`, and `OfficeView` are now live-wired extracted UI components
+- `OrderMessageThread` and `CompletionModal` are now also extracted and live-wired
 - Stabilization is now focused on reducing bridge fragility before the first meaningful review/opening
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Continue stabilizing the extracted ops surface
-2. Reduce remaining dependency-bag fragility / hidden assumptions
-3. Then choose the first real review/opening checkpoint
-4. Keep local-first testing as the runtime model while cleaning internal boundaries
-5. Make a checkpoint commit after each meaningful wiring milestone
+1. Decide whether this is the right first review/opening checkpoint
+2. If not, do one more very small stabilization sweep only
+3. Keep local-first testing as the runtime model while cleaning internal boundaries
+4. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
