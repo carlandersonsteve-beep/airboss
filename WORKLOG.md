@@ -94,6 +94,7 @@ In progress.
 - Routed live order selector behavior through `window.AirBossRuntime.orderSelectors`
 - Routed live order service behavior through `window.AirBossRuntime.orderService`
 - Made `index.html` load the browser runtime bridge before the Babel app script
+- Expanded browser runtime bridging so the live app now also uses runtime-backed customer/ticket/message payload logic
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -108,18 +109,17 @@ In progress.
 - Legacy statuses are now partially normalized in `index.html` through compatibility helpers
 - Selector logic is now bridging through the browser runtime layer
 - Core order transitions are now bridging through the browser runtime layer
-- Message/customer/ticket writes are cleaner and more centralized now, but still not routed through imported `src/` modules yet
+- Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Storage boundaries are improving, and sync boundaries are improving too
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
-- Browser runtime bridging is the current strategy for using `src/` concepts without introducing a build system too early
+- Browser runtime bridging is the current strategy for using `src/` architecture concepts without introducing a build system too early
 
 ## Next Recommended Steps
-1. Expand browser runtime bridging for additional service/repository behaviors where useful
-2. Decide whether to target kiosk bridging next or begin extracting UI chunks from `index.html`
-3. Continue shrinking `index.html` responsibility without breaking local-first testing
-4. Keep local-first testing as the runtime model while cleaning internal boundaries
-5. Once behavior is routed through the new spine more broadly, split more UI components out of the single-file HTML
-6. Make a checkpoint commit after each meaningful wiring milestone
+1. Decide whether to bridge kiosk behavior next or begin extracting UI chunks from `index.html`
+2. Continue shrinking `index.html` responsibility without breaking local-first testing
+3. Keep local-first testing as the runtime model while cleaning internal boundaries
+4. Once behavior is routed through the new spine more broadly, split more UI components out of the single-file HTML
+5. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
@@ -127,6 +127,7 @@ In progress.
 - Compatibility mode is useful now, but should not become permanent architectural debt
 - Intermediate in-file helpers and browser runtime bridges are transitional, not the final end state
 - There is still no build system, so module reuse is constrained by browser loading realities
+- Kiosk still needs the same architectural treatment if it remains part of the local-first test workflow
 
 ## Decision Log
 - Do not rewrite from scratch

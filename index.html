@@ -247,14 +247,9 @@
                 Storage.set('fbo_messages', messages);
             }, [messages]);
 
-            const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => ({
-                id: Date.now().toString(),
-                text,
-                sender,
-                orderId,
-                tailNumber,
-                createdAt: new Date().toISOString(),
-            });
+            const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => (
+                runtime.messageService.createMessagePayload({ text, senderRole: sender, orderId, tailNumber })
+            );
 
             const appendMessageRecord = (messageRecord) => {
                 setMessages(prev => [...prev, messageRecord]);
@@ -272,11 +267,7 @@
             };
             // === MESSAGING FEATURE END ===
 
-            const createCustomerRecord = (customer) => ({
-                ...customer,
-                id: Date.now().toString(),
-                createdAt: new Date().toISOString()
-            });
+            const createCustomerRecord = (customer) => runtime.customerService.createCustomerPayload(customer);
 
             const addCustomer = (customer) => {
                 const newCustomer = createCustomerRecord(customer);
@@ -286,7 +277,7 @@
             };
 
             const updateCustomer = (id, updates) => {
-                setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+                setCustomers(prev => prev.map(c => c.id === id ? runtime.customerService.updateCustomer(c, updates) : c));
             };
 
             const createOrderRecord = (order) => runtime.orderService.createOrderPayload(order);
@@ -341,12 +332,7 @@
                 transitionOrder(orderId, (order) => runtime.orderService.recallOrder(order));
             };
 
-            const createTicketRecord = (ticket) => ({
-                ...ticket,
-                id: Date.now().toString(),
-                createdAt: new Date().toISOString(),
-                status: 'pending'
-            });
+            const createTicketRecord = (ticket) => runtime.ticketService.createTicketPayload(ticket);
 
             const addTicket = (ticket) => {
                 const newTicket = createTicketRecord(ticket);
@@ -355,7 +341,7 @@
             };
 
             const resolveTicket = (ticketId) => {
-                setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t));
+                setTickets(prev => prev.map(t => t.id === ticketId ? runtime.ticketService.resolveTicket(t) : t));
             };
 
             const deleteTicket = (ticketId) => {

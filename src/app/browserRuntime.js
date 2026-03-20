@@ -153,10 +153,67 @@
     },
   };
 
+  const customerService = {
+    createCustomerPayload(payload) {
+      if (!payload?.tailNumber) throw new Error('Tail number is required');
+      return {
+        ...payload,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+      };
+    },
+
+    updateCustomer(customer, patch = {}) {
+      return { ...customer, ...patch };
+    },
+  };
+
+  const ticketService = {
+    createTicketPayload(payload) {
+      return {
+        ...payload,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      };
+    },
+
+    resolveTicket(ticket) {
+      return {
+        ...ticket,
+        status: 'resolved',
+        resolvedAt: new Date().toISOString(),
+      };
+    },
+  };
+
+  const messageService = {
+    createMessagePayload({ text, senderRole, orderId = null, tailNumber = null }) {
+      if (!text?.trim()) throw new Error('Message text is required');
+      return {
+        id: Date.now().toString(),
+        text: text.trim(),
+        sender: senderRole,
+        orderId,
+        tailNumber,
+        createdAt: new Date().toISOString(),
+      };
+    },
+
+    unreadCount(messages, lastReadChat) {
+      return (messages || []).filter((message) => {
+        return new Date(message.createdAt).getTime() > (lastReadChat || 0);
+      }).length;
+    },
+  };
+
   window.AirBossRuntime = {
     ORDER_STATUS,
     normalizeOrderStatus,
     orderSelectors,
     orderService,
+    customerService,
+    ticketService,
+    messageService,
   };
 })();

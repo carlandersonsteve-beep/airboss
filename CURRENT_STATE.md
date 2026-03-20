@@ -29,18 +29,20 @@
 - `index.html` has reduced some direct localStorage leakage
 - `index.html` has centralized sync adapters for Google Sheets / Forms backup
 - Live app now loads `src/app/browserRuntime.js`
-- Live app selector logic now bridges through the browser runtime instead of only in-file implementations
-- Live app order service actions now bridge through the browser runtime instead of only in-file implementations
+- Live app selector logic now bridges through the browser runtime
+- Live app order service actions now bridge through the browser runtime
+- Live app customer/ticket/message payload logic now also bridges through the browser runtime
 
 ## Likely Weak Points
 - single-file HTML structure still drives the live app UI
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
 - browser runtime is a bridge, not the final build/deploy model
+- kiosk is not yet bridged through the browser runtime
 - many live behaviors still have not been routed directly through imported `src/` modules because there is still no build system
 
 ## Immediate Next Focus
-- expand the browser runtime bridge for additional service/repository behaviors where useful
-- decide whether to next target kiosk runtime bridging or UI extraction from `index.html`
+- decide whether to bridge kiosk behavior next or start extracting major UI chunks from `index.html`
 - continue shrinking `index.html` responsibility without breaking local-first testing
 - preserve local-first testing while improving reliability and maintainability
+- keep using runtime bridging as the path toward eventual modularization
