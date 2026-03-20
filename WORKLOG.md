@@ -131,6 +131,10 @@ In progress.
   - extracted `CompletionModal` into `src/ui/ops/components/CompletionModal.js`
   - replaced inline versions in `index.html` with extracted-component aliases
   - reduced hidden coupling between extracted ops components and the remaining inline monolith
+- Continued top-level stabilization:
+  - normalized all extracted ops component resolution through `getExtractedComponent(...)`
+  - replaced raw `window.AirBossDeps = {...}` assignment with `publishAirBossDeps()` helper
+  - documented top-level stabilization notes
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -147,8 +151,7 @@ In progress.
 - Core order transitions are now bridging through the browser runtime layer
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
-- `OrderCard`, `RampView`, and `OfficeView` are now live-wired extracted UI components
-- `OrderMessageThread` and `CompletionModal` are now also extracted and live-wired
+- `OrderCard`, `RampView`, `OfficeView`, `OrderMessageThread`, and `CompletionModal` are now live-wired extracted components
 - Stabilization is now focused on reducing bridge fragility before the first meaningful review/opening
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 

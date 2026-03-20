@@ -29,12 +29,12 @@
   - `OrderCard`
   - `RampView`
   - `OfficeView`
-- Shared extracted support pieces are now also live:
   - `OrderMessageThread`
   - `CompletionModal`
 - Stabilization work now includes:
   - explicit extracted-component resolver
   - explicit component dependency validator (`componentBridge.js`)
+  - explicit top-level dependency publishing helper (`publishAirBossDeps()`)
   - extracted components now assert required deps instead of assuming them
 
 ## Likely Weak Points
@@ -45,7 +45,7 @@
 - browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- decide whether this is the right first review/opening checkpoint
-- if not, do one more very small stabilization sweep only
+- decide whether to keep stabilizing or choose the first real review/opening checkpoint
+- if continuing stabilization, keep it very small and targeted
 - preserve current workflow while improving maintainability
 - keep local-first testing stable while shrinking remaining inline complexity

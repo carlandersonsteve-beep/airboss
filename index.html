@@ -948,24 +948,28 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
         const OrderCard = getExtractedComponent('OrderCard');
 
-        window.AirBossDeps = {
-            syncAdapters,
-            isPendingStatus,
-            isInProgressStatus,
-            isReadyStatus,
-            isClosedStatus,
-            getTodayOrders,
-            getActiveRampOrders,
-            getReadyForFrontDeskOrders,
-            getClosedOrders,
-            getWeekOrders,
-            getFuelTotal,
-            OrderMessageThread,
-            CompletionModal,
-            OrderCard,
+        const publishAirBossDeps = () => {
+            window.AirBossDeps = {
+                syncAdapters,
+                isPendingStatus,
+                isInProgressStatus,
+                isReadyStatus,
+                isClosedStatus,
+                getTodayOrders,
+                getActiveRampOrders,
+                getReadyForFrontDeskOrders,
+                getClosedOrders,
+                getWeekOrders,
+                getFuelTotal,
+                OrderMessageThread,
+                CompletionModal,
+                OrderCard,
+            };
         };
 
-        const OfficeView = window.AirBossComponents.OfficeView;
+        publishAirBossDeps();
+
+        const OfficeView = getExtractedComponent('OfficeView');
 
         function CustomerView({ customers, orders, updateCustomer, onNewCustomer }) {
             const [searchTerm, setSearchTerm] = useState('');
