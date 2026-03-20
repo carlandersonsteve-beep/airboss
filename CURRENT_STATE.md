@@ -32,7 +32,7 @@
   - `OrderMessageThread`
   - `CompletionModal`
 - Stabilization work now includes:
-  - explicit extracted-component resolver
+  - explicit extracted-component resolver restored in `index.html`
   - explicit component dependency validator (`componentBridge.js`)
   - explicit top-level dependency publishing helper (`publishAirBossDeps()`)
   - normalized extracted component resolution including `RampView`
@@ -46,7 +46,7 @@
 - browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- likely ready for first meaningful review soon
-- if continuing stabilization, keep it very small and targeted only
+- re-test the ops app after restoring `getExtractedComponent(...)`
+- likely ready for first meaningful review very soon if the blank-screen issue is resolved
 - preserve current workflow while improving maintainability
 - keep local-first testing stable while shrinking remaining inline complexity

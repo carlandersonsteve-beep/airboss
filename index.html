@@ -181,6 +181,13 @@
         };
 
         const runtime = window.AirBossRuntime;
+        const getExtractedComponent = (name) => {
+            const component = window.AirBossComponents && window.AirBossComponents[name];
+            if (!component) {
+                throw new Error(`Missing extracted component: ${name}`);
+            }
+            return component;
+        };
         const normalizeOrderStatus = (status) => runtime.normalizeOrderStatus(status);
 
         const isPendingStatus = (status) => normalizeOrderStatus(status) === 'pending';

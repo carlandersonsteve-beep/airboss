@@ -139,6 +139,9 @@ In progress.
   - fixed `RampView` to also resolve through guarded extraction instead of raw global access
   - added `REVIEW_READINESS.md`
   - clarified that further stabilization should now stay very small and targeted
+- Bug fix from first live opening:
+  - restored missing `getExtractedComponent(...)` helper in `index.html`
+  - this likely caused the blank-screen failure in the ops app while kiosk still rendered
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -160,10 +163,11 @@ In progress.
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Decide whether this is the right first review/opening checkpoint
-2. If not, do one more very small stabilization sweep only
-3. Keep local-first testing as the runtime model while cleaning internal boundaries
-4. Make a checkpoint commit after each meaningful wiring milestone
+1. Re-test the ops app after restoring `getExtractedComponent(...)`
+2. If it loads, begin the first meaningful review/opening
+3. If not, inspect the next console/runtime failure and fix surgically
+4. Keep local-first testing as the runtime model while cleaning internal boundaries
+5. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
