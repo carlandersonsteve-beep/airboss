@@ -14,7 +14,11 @@ window.AirBossComponents.OfficeView = function OfficeView({
   closeOrder,
 }) {
   const { useState } = React;
-  const deps = window.AirBossDeps || {};
+  const deps = window.AirBossComponentBridge.requireDeps(
+    'OfficeView',
+    window.AirBossDeps || {},
+    ['isClosedStatus', 'isReadyStatus', 'getReadyForFrontDeskOrders', 'getClosedOrders', 'getTodayOrders', 'getWeekOrders', 'getFuelTotal']
+  );
   const {
     isClosedStatus,
     isReadyStatus,

@@ -29,10 +29,10 @@
   - `OrderCard`
   - `RampView`
   - `OfficeView`
-- Stabilization pass has begun:
-  - explicit extracted-component resolver added
-  - missing extracted component load now fails loudly instead of silently
-  - stabilization notes added for the extracted ops surface
+- Stabilization work now includes:
+  - explicit extracted-component resolver
+  - explicit component dependency validator (`componentBridge.js`)
+  - extracted components now assert required deps instead of assuming them
 
 ## Likely Weak Points
 - single-file HTML structure still drives some remaining live UI behavior
@@ -43,6 +43,6 @@
 
 ## Immediate Next Focus
 - continue stabilizing the extracted ops surface
-- reduce remaining dependency-bag fragility
-- then choose the first real review/opening checkpoint
+- decide whether the next pass should target shared modals/helpers or the first real review/opening
 - preserve current workflow while improving maintainability
+- keep local-first testing stable while shrinking remaining inline complexity

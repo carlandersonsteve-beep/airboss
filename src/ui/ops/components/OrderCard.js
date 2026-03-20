@@ -11,7 +11,11 @@ window.AirBossComponents.OrderCard = function OrderCard({
   markOrderReadyForFrontDesk,
 }) {
   const { useState } = React;
-  const deps = window.AirBossDeps || {};
+  const deps = window.AirBossComponentBridge.requireDeps(
+    'OrderCard',
+    window.AirBossDeps || {},
+    ['syncAdapters', 'isPendingStatus', 'isInProgressStatus', 'OrderMessageThread', 'CompletionModal']
+  );
   const {
     syncAdapters,
     isPendingStatus,

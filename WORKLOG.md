@@ -122,6 +122,10 @@ In progress.
   - added `src/ui/ops/components/STABILIZATION_NOTES.md`
   - added explicit extracted-component resolver in `index.html`
   - replaced direct component global access with guarded resolution for `OrderCard`, `RampView`, and `OfficeView`
+- Continued stabilization pass:
+  - added `src/ui/ops/components/componentBridge.js`
+  - extracted components now validate required dependencies explicitly via `window.AirBossComponentBridge.requireDeps(...)`
+  - loading order updated so the bridge helper exists before extracted Babel components run
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

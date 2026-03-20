@@ -14,7 +14,11 @@ window.AirBossComponents.RampView = function RampView({
   startOrderService,
   markOrderReadyForFrontDesk,
 }) {
-  const deps = window.AirBossDeps || {};
+  const deps = window.AirBossComponentBridge.requireDeps(
+    'RampView',
+    window.AirBossDeps || {},
+    ['getTodayOrders', 'getActiveRampOrders', 'getClosedOrders', 'OrderCard']
+  );
   const {
     getTodayOrders,
     getActiveRampOrders,
