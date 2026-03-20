@@ -25,23 +25,24 @@
 - Repository and first-pass service layers exist under `src/`
 - Live ops app and kiosk now bridge behavioral logic through `src/app/browserRuntime.js`
 - Kiosk creation flow is now runtime-backed instead of fully ad hoc
-- UI extraction phase is active:
-  - `OrderCard` is now a live externalized component
-  - `RampView` is now a live externalized component
-  - `OfficeView.reference.js` created from live code
-  - `OfficeView.js` created as a live external component file
-  - `index.html` now aliases `OfficeView` to `window.AirBossComponents.OfficeView`
-  - dependency bag expanded again through `window.AirBossDeps`
+- Major ops UI extraction is live:
+  - `OrderCard`
+  - `RampView`
+  - `OfficeView`
+- Stabilization pass has begun:
+  - explicit extracted-component resolver added
+  - missing extracted component load now fails loudly instead of silently
+  - stabilization notes added for the extracted ops surface
 
 ## Likely Weak Points
 - single-file HTML structure still drives some remaining live UI behavior
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- extracted UI now covers the major ops surfaces, but other modals/views remain inline
-- browser globals/dependency bag are a transitional mechanism, not the final UI module system
+- extracted UI now covers the major ops surfaces, but modals/views remain inline
+- browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- stabilize the extracted ops surface (`OrderCard`, `RampView`, `OfficeView`) mentally/in code
-- then decide whether the next pass should be modals or a first real review/test opening
-- keep local-first testing stable while shrinking the HTML files
+- continue stabilizing the extracted ops surface
+- reduce remaining dependency-bag fragility
+- then choose the first real review/opening checkpoint
 - preserve current workflow while improving maintainability

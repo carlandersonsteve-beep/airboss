@@ -118,6 +118,10 @@ In progress.
   - documented `OfficeView` prop contract/notes
   - updated `index.html` to alias `OfficeView` to the extracted component via `window.AirBossComponents.OfficeView`
   - expanded `window.AirBossDeps` so the extracted `OfficeView` can use shared status/selector helpers
+- Began stabilization pass for extracted ops surface:
+  - added `src/ui/ops/components/STABILIZATION_NOTES.md`
+  - added explicit extracted-component resolver in `index.html`
+  - replaced direct component global access with guarded resolution for `OrderCard`, `RampView`, and `OfficeView`
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -135,12 +139,13 @@ In progress.
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
 - `OrderCard`, `RampView`, and `OfficeView` are now live-wired extracted UI components
+- Stabilization is now focused on reducing bridge fragility before the first meaningful review/opening
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Stabilize the extracted ops surface (`OrderCard`, `RampView`, `OfficeView`) mentally/in code
-2. Decide whether next pass should target modals or move into the first real review/opening
-3. Continue shrinking HTML-file responsibility without breaking local-first testing
+1. Continue stabilizing the extracted ops surface
+2. Reduce remaining dependency-bag fragility / hidden assumptions
+3. Then choose the first real review/opening checkpoint
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Make a checkpoint commit after each meaningful wiring milestone
 
@@ -170,6 +175,7 @@ In progress.
 - Keep kiosk and ops aligned so kiosk does not become the schema-drift side door into the system
 - Start UI extraction with `OrderCard`, then `RampView`, then `OfficeView`
 - Use browser globals as a temporary extraction bridge only where needed to safely externalize live UI code
+- Before first serious review, prefer stabilization over more aggressive refactors
 
 ## If Starting Fresh Next Session
 Read in this order:
