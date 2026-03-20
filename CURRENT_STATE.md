@@ -27,20 +27,21 @@
 - Kiosk creation flow is now runtime-backed instead of fully ad hoc
 - UI extraction phase is active:
   - `OrderCard` is now a live externalized component
-  - `RampView.reference.js` created from live code
-  - `RampView.js` created as extracted live component file
-  - `index.html` now aliases `RampView` to `window.AirBossComponents.RampView`
-  - dependency bag expanded through `window.AirBossDeps`
+  - `RampView` is now a live externalized component
+  - `OfficeView.reference.js` created from live code
+  - `OfficeView.js` created as a live external component file
+  - `index.html` now aliases `OfficeView` to `window.AirBossComponents.OfficeView`
+  - dependency bag expanded again through `window.AirBossDeps`
 
 ## Likely Weak Points
-- single-file HTML structure still drives some major live UI behavior
+- single-file HTML structure still drives some remaining live UI behavior
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- extracted UI is live for `OrderCard` and `RampView`, but broader UI remains inline
+- extracted UI now covers the major ops surfaces, but other modals/views remain inline
 - browser globals/dependency bag are a transitional mechanism, not the final UI module system
 
 ## Immediate Next Focus
-- verify/stabilize the live `RampView` extraction path
-- then extract `OfficeView`
+- stabilize the extracted ops surface (`OrderCard`, `RampView`, `OfficeView`) mentally/in code
+- then decide whether the next pass should be modals or a first real review/test opening
 - keep local-first testing stable while shrinking the HTML files
 - preserve current workflow while improving maintainability

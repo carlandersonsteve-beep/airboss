@@ -112,6 +112,12 @@ In progress.
   - documented `RampView` prop contract/notes
   - updated `index.html` to alias `RampView` to the extracted component via `window.AirBossComponents.RampView`
   - expanded `window.AirBossDeps` so the extracted `RampView` can use shared selectors and `OrderCard`
+- Continued UI extraction phase again:
+  - created `src/ui/ops/components/OfficeView.reference.js` from live code
+  - created `src/ui/ops/components/OfficeView.js` as a live external component file
+  - documented `OfficeView` prop contract/notes
+  - updated `index.html` to alias `OfficeView` to the extracted component via `window.AirBossComponents.OfficeView`
+  - expanded `window.AirBossDeps` so the extracted `OfficeView` can use shared status/selector helpers
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -128,12 +134,12 @@ In progress.
 - Core order transitions are now bridging through the browser runtime layer
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
 - Kiosk creation logic is now also bridging through the browser runtime layer
-- `OrderCard` and `RampView` are now live-wired extracted UI components
+- `OrderCard`, `RampView`, and `OfficeView` are now live-wired extracted UI components
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Verify/stabilize the live `RampView` extraction path
-2. Extract `OfficeView` next
+1. Stabilize the extracted ops surface (`OrderCard`, `RampView`, `OfficeView`) mentally/in code
+2. Decide whether next pass should target modals or move into the first real review/opening
 3. Continue shrinking HTML-file responsibility without breaking local-first testing
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Make a checkpoint commit after each meaningful wiring milestone
