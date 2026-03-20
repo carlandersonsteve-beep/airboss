@@ -640,7 +640,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             );
         }
 
-        const RampView = window.AirBossComponents.RampView;
+        const RampView = getExtractedComponent('RampView');
+        const hasPublishedAirBossDeps = () => Boolean(window.AirBossDeps && window.AirBossDeps.OrderCard && window.AirBossDeps.CompletionModal);
 
         // === MESSAGING FEATURE START ===
         const OrderMessageThread = getExtractedComponent('OrderMessageThread');

@@ -35,17 +35,18 @@
   - explicit extracted-component resolver
   - explicit component dependency validator (`componentBridge.js`)
   - explicit top-level dependency publishing helper (`publishAirBossDeps()`)
+  - normalized extracted component resolution including `RampView`
   - extracted components now assert required deps instead of assuming them
 
 ## Likely Weak Points
 - single-file HTML structure still drives some remaining live UI behavior
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- extracted UI now covers the major ops surfaces and two shared pieces, but other modals/views remain inline
+- extracted UI now covers the major ops surfaces and key shared pieces, but other modals/views remain inline
 - browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- decide whether to keep stabilizing or choose the first real review/opening checkpoint
-- if continuing stabilization, keep it very small and targeted
+- likely ready for first meaningful review soon
+- if continuing stabilization, keep it very small and targeted only
 - preserve current workflow while improving maintainability
 - keep local-first testing stable while shrinking remaining inline complexity

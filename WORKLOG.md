@@ -135,6 +135,10 @@ In progress.
   - normalized all extracted ops component resolution through `getExtractedComponent(...)`
   - replaced raw `window.AirBossDeps = {...}` assignment with `publishAirBossDeps()` helper
   - documented top-level stabilization notes
+- Small follow-up stabilization:
+  - fixed `RampView` to also resolve through guarded extraction instead of raw global access
+  - added `REVIEW_READINESS.md`
+  - clarified that further stabilization should now stay very small and targeted
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
