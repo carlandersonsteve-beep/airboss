@@ -86,6 +86,10 @@ In progress.
   - centralizing export snapshot creation
   - extending import to restore messages as part of app state
   - switching more state writes to functional update patterns
+- Centralized Google sync/backup behavior inside `index.html` behind `syncAdapters` as an intermediate bridge for:
+  - Google Sheets sync calls
+  - Google Forms JSON payload backup calls
+- Replaced direct sync call sites to use these adapters instead of embedding raw fetch behavior in multiple places
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -101,20 +105,19 @@ In progress.
 - Selector logic is beginning to move out of repeated inline expressions
 - Core order transitions are beginning to move out of ad hoc inline handlers
 - Message/customer/ticket writes are cleaner and more centralized now, but still not routed through imported `src/` modules yet
-- Storage boundaries are improving, but sync logic is still too embedded in the old app flow
+- Storage boundaries are improving, and sync boundaries are now improving too
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Move Google sync and backup logic behind the new sync layer wrappers
-2. Continue reducing direct storage/sync side effects in `index.html`
-3. Begin bridging selected live behaviors to actual `src/` service/repository modules
+1. Bridge sync adapter behavior toward the actual `src/data/sync/*` modules
+2. Begin bridging selected live behaviors to actual `src/` service/repository modules
+3. Continue shrinking `index.html` responsibility without breaking local-first testing
 4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Once behavior is routed through the new spine, split more UI components out of the single-file HTML
 6. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
-- Existing UI still contains embedded sync logic
 - New files are scaffold-level and only partly integrated into live behavior
 - Compatibility mode is useful now, but should not become permanent architectural debt
 - Intermediate in-file helpers are a bridge, not the desired end state
@@ -131,6 +134,7 @@ In progress.
 - Use in-file transition helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderService.js`
 - Use in-file record helpers as an intermediate bridge before fully routing writes through customer/ticket/message services
 - Keep AirBoss local-first for testing until workflow quality is proven
+- Use in-file sync adapters as an intermediate bridge before fully routing sync behavior through `src/data/sync/*`
 
 ## If Starting Fresh Next Session
 Read in this order:

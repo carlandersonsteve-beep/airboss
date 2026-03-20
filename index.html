@@ -122,18 +122,39 @@
         const { useState, useEffect } = React;
 
         const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxbymVS5_yCkKIZx49fJT1LtVM3ToI05dt_upjif3qFKj2zLENnf3mTLMflABkJepDC7A/exec';
+        const GOOGLE_FORMS_BACKUP_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse';
 
-        // Google Sheets sync helper
-        const syncToSheets = async (action, data) => {
-            try {
-                await fetch(GOOGLE_SHEETS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, ...data })
-                });
-            } catch (error) {
-                console.log('Google Sheets sync attempted (background)');
+        // Sync bridge helpers — still local-first, but sync behavior is centralized here.
+        const syncAdapters = {
+            async syncToSheets(action, data) {
+                try {
+                    await fetch(GOOGLE_SHEETS_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, ...data })
+                    });
+                } catch (error) {
+                    console.log('Google Sheets sync attempted (background)');
+                }
+            },
+
+            async backupJsonPayload(type, payload) {
+                try {
+                    const formData = new FormData();
+                    formData.append('entry.766632014', JSON.stringify({
+                        type,
+                        timestamp: new Date().toISOString(),
+                        ...payload
+                    }));
+                    await fetch(GOOGLE_FORMS_BACKUP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: formData
+                    });
+                } catch (error) {
+                    console.log('Google Forms backup attempted (background)');
+                }
             }
         };
 
@@ -275,7 +296,7 @@
             const addCustomer = (customer) => {
                 const newCustomer = createCustomerRecord(customer);
                 setCustomers(prev => [...prev, newCustomer]);
-                syncToSheets('addCustomer', { customer: newCustomer });
+                syncAdapters.syncToSheets('addCustomer', { customer: newCustomer });
                 return newCustomer;
             };
 
@@ -299,19 +320,7 @@
             };
 
             const backupOrderUpdate = (updatedOrder) => {
-                try {
-                    const formData = new FormData();
-                    formData.append('entry.766632014', JSON.stringify({
-                        type: 'order-update',
-                        timestamp: new Date().toISOString(),
-                        order: updatedOrder
-                    }));
-                    fetch('https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse', {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: formData
-                    });
-                } catch (e) { }
+                syncAdapters.backupJsonPayload('order-update', { order: updatedOrder });
             };
 
             const transitionOrder = (orderId, nextStatus, extraFields = {}) => {
@@ -348,7 +357,7 @@
                 setOrders(prev => [...prev, newOrder]);
                 setShowNewOrder(false);
                 setSelectedCustomer(null);
-                syncToSheets('addOrder', { order: newOrder });
+                syncAdapters.syncToSheets('addOrder', { order: newOrder });
             };
 
             const updateOrderStatus = (orderId, status, extraFields = {}) => {
@@ -1180,8 +1189,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     status: 'ready'
                 };
                 
-                // Sync to Google Sheets
-                syncToSheets('updateOrder', { order: updatedOrder });
+                // Sync through centralized adapter
+                syncAdapters.syncToSheets('updateOrder', { order: updatedOrder });
                 
                 // Update status in parent — pass all fields so React state stays in sync
                 markOrderReadyForFrontDesk(order.id, {

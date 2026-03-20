@@ -25,22 +25,20 @@
 - `index.html` has centralized selector-style helpers for order filtering/counting
 - `index.html` has service-style transition helpers for core order actions
 - `index.html` has centralized record-creation/write helpers for messages/customers/tickets
-- `index.html` has reduced some direct localStorage leakage by centralizing:
-  - pre-departure sent updates
-  - export snapshot building
-  - import restoration for messages as well as core records
-  - order patch persistence helper usage
+- `index.html` has reduced some direct localStorage leakage
+- `index.html` now has centralized sync adapters for:
+  - Google Sheets sync
+  - Google Forms JSON backup payloads
 
 ## Likely Weak Points
 - single-file HTML structure still drives the live app
 - in-browser Babel/React setup
 - localStorage is still the primary live store by design for this phase
-- Google sync/backup logic is still embedded in the old app flow
-- new architecture exists, but most behavior is not yet routed through `src/`
-- sync boundaries still need cleanup even though storage boundaries are improving
+- sync behavior is cleaner now but still in the giant live file rather than routed through `src/data/sync/*`
+- new architecture exists, but most behavior is not yet imported from `src/`
 
 ## Immediate Next Focus
-- move Google sync/backup behavior behind explicit sync helpers
-- continue reducing direct storage/sync side effects in `index.html`
+- bridge sync adapter usage toward `src/data/sync/*`
 - begin bridging selected live behaviors to actual `src/` service/repository modules
-- preserve local-first testing while improving code reliability
+- continue shrinking `index.html` responsibility without breaking local-first testing
+- preserve local-first testing while improving reliability and maintainability
