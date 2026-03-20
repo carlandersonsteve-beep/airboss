@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Smart Arrival - Mustang Aviation</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #3e2f23 url('https://images.pexels.com/photos/129733/pexels-photo-129733.jpeg?auto=compress&w=1920') center center;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+            z-index: 0;
+        }
+        }
+        }
+        }
+        }
+        }
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .mustang-red {
+            background-color: #C41E3A;
+        }
+        .mustang-gradient {
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1528 100%);
+        }
+        .mustang-red-hover:hover {
+            background-color: #A01828;
+        }
+        .mustang-red-text {
+            color: #C41E3A;
+        }
+        .mustang-red-border {
+            border-color: #C41E3A;
+        }
+        .wood-header {
+            background: linear-gradient(180deg, rgba(74, 57, 42, 0.95) 0%, rgba(62, 47, 35, 0.98) 100%);
+            border-bottom: 3px solid #c9a961;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 100;
+        }
+        .tan-nav {
+            background-color: #c9a961;
+            color: #3e2f23;
+        }
+        .card-wood {
+            background: rgba(255, 255, 255, 0.97);
+            border: 2px solid #8b7355;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            position: relative;
+            z-index: 1;
+        }
+        .western-text {
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            color: #f5f5dc;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            border: 2px solid #8b7355;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+            position: relative;
+            z-index: 1;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        main {
+            position: relative;
+            z-index: 1;
+        }
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            button {
+                min-height: 44px;
+                font-size: 16px;
+            }
+            input, select, textarea {
+                font-size: 16px;
+            }
+        }
+        body {
+            overscroll-behavior-y: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxbymVS5_yCkKIZx49fJT1LtVM3ToI05dt_upjif3qFKj2zLENnf3mTLMflABkJepDC7A/exec';
+
+        // Google Sheets sync helper
+        const syncToSheets = async (action, data) => {
+            try {
+                await fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+            } catch (error) {
+                console.log('Google Sheets sync attempted (background)');
+            }
+        };
+
+        // Storage helper
+        const Storage = {
+            get: (key) => {
+                try {
+                    const item = localStorage.getItem(key);
+                    return item ? JSON.parse(item) : null;
+                } catch (e) {
+                    return null;
+                }
+            },
+            set: (key, value) => {
+                localStorage.setItem(key, JSON.stringify(value));
+            }
+        };
+
+        function FBOSystem() {
+            const [view, setView] = useState('ramp'); // 'ramp', 'office', 'customers', 'chat'
+            const [customers, setCustomers] = useState([]);
+            const [orders, setOrders] = useState([]);
+            const [tickets, setTickets] = useState([]);
+            const [selectedCustomer, setSelectedCustomer] = useState(null);
+            const [showNewCustomer, setShowNewCustomer] = useState(false);
+            const [showNewOrder, setShowNewOrder] = useState(false);
+            const [showQuickFuel, setShowQuickFuel] = useState(false);
+
+            // === MESSAGING FEATURE START ===
+            const [messages, setMessages] = useState([]);
+            const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
+            // === MESSAGING FEATURE END ===
+
+            // Load data on mount
+            useEffect(() => {
+                const savedCustomers = Storage.get('fbo_customers') || [];
+                const savedOrders = Storage.get('fbo_orders') || [];
+                const savedTickets = Storage.get('fbo_tickets') || [];
+                setCustomers(savedCustomers);
+                setOrders(savedOrders);
+                setTickets(savedTickets);
+                // === MESSAGING FEATURE START ===
+                const savedMessages = Storage.get('fbo_messages') || [];
+                setMessages(savedMessages);
+                // === MESSAGING FEATURE END ===
+            }, []);
+
+            // Save data when it changes
+            useEffect(() => {
+                Storage.set('fbo_customers', customers);
+            }, [customers]);
+
+            useEffect(() => {
+                Storage.set('fbo_orders', orders);
+            }, [orders]);
+
+            useEffect(() => {
+                Storage.set('fbo_tickets', tickets);
+            }, [tickets]);
+
+            // === MESSAGING FEATURE START ===
+            useEffect(() => {
+                Storage.set('fbo_messages', messages);
+            }, [messages]);
+
+            const addMessage = (text, sender, orderId = null, tailNumber = null) => {
+                const msg = {
+                    id: Date.now().toString(),
+                    text,
+                    sender, // 'RAMP' or 'OFFICE'
+                    orderId,
+                    tailNumber,
+                    createdAt: new Date().toISOString(),
+                };
+                setMessages(prev => {
+                    const updated = [...prev, msg];
+                    Storage.set('fbo_messages', updated);
+                    return updated;
+                });
+            };
+
+            const markChatRead = () => {
+                const now = Date.now();
+                setLastReadChat(now);
+                Storage.set('fbo_last_read_chat', now);
+            };
+            // === MESSAGING FEATURE END ===
+
+            const addCustomer = (customer) => {
+                const newCustomer = {
+                    ...customer,
+                    id: Date.now().toString(),
+                    createdAt: new Date().toISOString()
+                };
+                setCustomers([...customers, newCustomer]);
+                syncToSheets('addCustomer', { customer: newCustomer });
+                return newCustomer;
+            };
+
+            const updateCustomer = (id, updates) => {
+                setCustomers(customers.map(c => c.id === id ? { ...c, ...updates } : c));
+            };
+
+            const addOrder = (order) => {
+                const newOrder = {
+                    ...order,
+                    id: Date.now().toString(),
+                    createdAt: new Date().toISOString(),
+                    status: order.status || 'pending'
+                };
+                setOrders([...orders, newOrder]);
+                setShowNewOrder(false);
+                setSelectedCustomer(null);
+                syncToSheets('addOrder', { order: newOrder });
+            };
+
+            const updateOrderStatus = (orderId, status, extraFields = {}) => {
+                setOrders(orders.map(o => {
+                    if (o.id === orderId) {
+                        const updated = { ...o, status, statusUpdatedAt: new Date().toISOString(), ...extraFields };
+                        
+                        // Backup to Google Forms
+                        try {
+                            const formData = new FormData();
+                            formData.append('entry.766632014', JSON.stringify({
+                                type: 'order-update',
+                                timestamp: new Date().toISOString(),
+                                order: updated
+                            }));
+                            fetch('https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse', {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                body: formData
+                            });
+                        } catch (e) { }
+                        
+                        return updated;
+                    }
+                    return o;
+                }));
+            };
+
+            // Recall function - moves order back one step in workflow
+            const recallOrder = (orderId) => {
+                const order = orders.find(o => o.id === orderId);
+                if (!order) return;
+                
+                let newStatus = order.status;
+                if (order.status === 'ready') newStatus = 'in-progress'; // Front desk recalls to ramp
+                else if (order.status === 'finalized') newStatus = 'ready'; // Archive recalls to front desk
+                
+                updateOrderStatus(orderId, newStatus);
+            };
+
+            const addTicket = (ticket) => {
+                const newTicket = {
+                    ...ticket,
+                    id: Date.now().toString(),
+                    createdAt: new Date().toISOString(),
+                    status: 'pending'
+                };
+                setTickets([...tickets, newTicket]);
+            };
+
+            const resolveTicket = (ticketId) => {
+                setTickets(tickets.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t));
+            };
+
+            const deleteTicket = (ticketId) => {
+                setTickets(tickets.filter(t => t.id !== ticketId));
+            };
+
+            const exportData = () => {
+                const data = {
+                    customers,
+                    orders,
+                    tickets,
+                    exportDate: new Date().toISOString(),
+                    version: '1.0'
+                };
+                
+                const dataStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `mustang-aviation-backup-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+                alert('Data exported successfully!');
+            };
+
+            const importData = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const importedData = JSON.parse(event.target.result);
+                            
+                            if (confirm('This will replace all current data. Are you sure?')) {
+                                setCustomers(importedData.customers || []);
+                                setOrders(importedData.orders || []);
+                                setTickets(importedData.tickets || []);
+                                alert('Data imported successfully!');
+                            }
+                        } catch (error) {
+                            alert('Error importing data: Invalid file format');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            };
+
+            const generateCompletionEmail = (order, customer) => {
+                const subject = `Service Complete - ${customer?.tailNumber || order.tailNumber} - Mustang Aviation`;
+                
+                let services = [];
+                if (order.fuelType) {
+                    services.push(`${order.fuelQuantity} gallons of ${order.fuelType}`);
+                }
+                if (order.hangarOvernight === 'yes') {
+                    services.push(`Hangar overnight - Secured indoors`);
+                } else if (order.hangarOvernight === 'no') {
+                    services.push(`Outside tie-down parking`);
+                }
+                if (order.services && order.services.length > 0) {
+                    const serviceLabels = {
+                        'lav': 'Lavatory Service',
+                        'gpu': 'GPU (Ground Power)',
+                        'oxygen': 'Oxygen Service',
+                        'deice': 'De-icing',
+                        'tiedown': 'Tiedown',
+                        'crew_car': 'Crew Car',
+                        'coffee': '☕ Coffee',
+                        'ice': '🧊 Ice'
+                    };
+                    order.services.forEach(s => {
+                        services.push(serviceLabels[s] || s);
+                    });
+                }
+
+                const body = `Dear ${customer.pilotName || customer.ownerName || 'Valued Customer'},
+
+Thank you for choosing Mustang Aviation. Your aircraft ${customer.tailNumber} (${customer.aircraftType}) has been serviced and is ready for departure.
+
+SERVICES COMPLETED:
+${services.map(s => '   - ' + s).join('\n')}
+
+We hope you enjoyed your stop in Pierre. If you need anything further, please do not hesitate to reach out - we are always happy to help.
+
+info@mustangaviation.aero
+www.mustangaviation.aero
+
+Safe travels,
+
+Mustang Aviation
+Pierre Regional Airport (KPIR)
+Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
+
+"Where the Midwest Meets the Wild West"`;
+
+                const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.location.href = mailtoLink;
+            };
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <header className="wood-header text-white shadow-lg">
+                        <div className="container mx-auto px-4 py-6">
+                            <div className="flex justify-between items-center flex-wrap gap-4">
+                                <div>
+                                    <h1 className="text-3xl font-bold western-text flex items-center gap-2">
+                                        Smart Arrival
+                                    </h1>
+                                    <div className="text-sm opacity-90 western-text" style={{color: '#c9a961'}}>
+                                        Mustang Aviation • Pierre, SD • "Where the Midwest Meets the Wild West"
+                                    </div>
+                                </div>
+                                
+                                {/* Department Toggle */}
+                                <div className="flex items-center gap-4">
+                                    <div className="flex gap-2 p-1 rounded-lg" style={{background: 'rgba(0,0,0,0.3)'}}>
+                                        <button
+                                            onClick={() => setView('ramp')}
+                                            className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
+                                                view === 'ramp' 
+                                                ? 'mustang-red text-white shadow-lg' 
+                                                : 'bg-transparent text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            RAMP
+                                            {orders.filter(o => (o.status === 'pending' || o.status === 'in-progress') && new Date(o.createdAt).toDateString() === new Date().toDateString()).length > 0 && (
+                                                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+                                                    {orders.filter(o => (o.status === 'pending' || o.status === 'in-progress') && new Date(o.createdAt).toDateString() === new Date().toDateString()).length}
+                                                </span>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => setView('office')}
+                                            className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
+                                                view === 'office' 
+                                                ? 'mustang-red text-white shadow-lg' 
+                                                : 'bg-transparent text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            FRONT DESK
+                                            {orders.filter(o => o.status === 'ready').length > 0 && (
+                                                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+                                                    {orders.filter(o => o.status === 'ready').length}
+                                                </span>
+                                            )}
+                                        </button>
+                                        {/* === MESSAGING FEATURE START === */}
+                                        <button
+                                            onClick={() => { setView('chat'); markChatRead(); }}
+                                            className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
+                                                view === 'chat' 
+                                                ? 'mustang-red text-white shadow-lg' 
+                                                : 'bg-transparent text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            💬 CHAT
+                                            {messages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length > 0 && view !== 'chat' && (
+                                                <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+                                                    {messages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length}
+                                                </span>
+                                            )}
+                                        </button>
+                                        {/* === MESSAGING FEATURE END === */}
+                                        {/* === CALENDAR FEATURE START === */}
+                                        <button
+                                            onClick={() => setView('calendar')}
+                                            className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
+                                                view === 'calendar' 
+                                                ? 'mustang-red text-white shadow-lg' 
+                                                : 'bg-transparent text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            📅 CALENDAR
+                                        </button>
+                                        {/* === CALENDAR FEATURE END === */}
+                                    </div>
+                                    
+                                    <div className="hidden md:flex gap-2">
+                                        <button
+                                            onClick={exportData}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+                                            title="Export all data as backup"
+                                        >
+                                            📥
+                                        </button>
+                                        <button
+                                            onClick={importData}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+                                            title="Import data from backup file"
+                                        >
+                                            📤
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="container mx-auto px-4 py-8">
+                        <div className="card-wood rounded-xl p-6">
+                        {view === 'ramp' && (
+                            <RampView 
+                                customers={customers}
+                                orders={orders}
+                                tickets={tickets}
+                                onNewOrder={() => setShowNewOrder(true)}
+                                onNewCustomer={() => setShowNewCustomer(true)}
+                                onQuickFuel={() => setShowQuickFuel(true)}
+                                updateOrderStatus={updateOrderStatus}
+                                addTicket={addTicket}
+                                messages={messages}
+                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'RAMP', orderId, tailNumber)}
+                            />
+                        )}
+                        {view === 'office' && (
+                            <OfficeView 
+                                orders={orders}
+                                customers={customers}
+                                tickets={tickets}
+                                updateOrderStatus={updateOrderStatus}
+                                recallOrder={recallOrder}
+                                resolveTicket={resolveTicket}
+                                deleteTicket={deleteTicket}
+                                generateCompletionEmail={generateCompletionEmail}
+                                messages={messages}
+                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'OFFICE', orderId, tailNumber)}
+                            />
+                        )}
+                        {/* === MESSAGING FEATURE START === */}
+                        {view === 'chat' && (
+                            <ChatView
+                                messages={messages}
+                                orders={orders}
+                                addMessage={addMessage}
+                                onOpen={markChatRead}
+                            />
+                        )}
+                        {/* === MESSAGING FEATURE END === */}
+                        {/* === CALENDAR FEATURE START === */}
+                        {view === 'calendar' && (
+                            <CalendarView orders={orders} />
+                        )}
+                        {/* === CALENDAR FEATURE END === */}
+                        </div>
+                    </main>
+
+                    {/* Modals */}
+                    {showNewCustomer && (
+                        <CustomerModal
+                            onClose={() => setShowNewCustomer(false)}
+                            onSave={(customer) => {
+                                const newCust = addCustomer(customer);
+                                setShowNewCustomer(false);
+                                if (showNewOrder) {
+                                    setSelectedCustomer(newCust);
+                                }
+                            }}
+                        />
+                    )}
+
+                    {showNewOrder && (
+                        <OrderModal
+                            customers={customers}
+                            selectedCustomer={selectedCustomer}
+                            onClose={() => {
+                                setShowNewOrder(false);
+                                setSelectedCustomer(null);
+                            }}
+                            onSave={addOrder}
+                            onNewCustomer={() => setShowNewCustomer(true)}
+                        />
+                    )}
+
+                    {showQuickFuel && (
+                        <QuickFuelModal
+                            customers={customers}
+                            orders={orders}
+                            onClose={() => setShowQuickFuel(false)}
+                            addTicket={addTicket}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function RampView({ customers, orders, tickets, onNewOrder, onNewCustomer, onQuickFuel, updateOrderStatus, addTicket, messages, addMessage }) {
+            const todayOrders = orders.filter(o => {
+                const orderDate = new Date(o.createdAt);
+                const today = new Date();
+                return orderDate.toDateString() === today.toDateString();
+            });
+
+            // Ramp only sees PENDING and IN-PROGRESS (not ready or completed)
+            const activeOrders = todayOrders.filter(o => 
+                o.status === 'pending' || o.status === 'in-progress'
+            );
+
+            return (
+                <div>
+                    {/* Mobile Quick Action */}
+                    <div className="lg:hidden mb-4">
+                        <button
+                            onClick={onQuickFuel}
+                            className="w-full mustang-red mustang-red-hover text-white px-6 py-4 rounded-lg font-bold text-lg shadow-lg transition flex items-center justify-center gap-2"
+                        >
+                            ⚡ Quick Fuel Entry
+                        </button>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+                        <h2 className="text-3xl font-bold text-gray-800">Ramp Operations</h2>
+                        <div className="flex gap-3 flex-wrap">
+                            <button
+                                onClick={onQuickFuel}
+                                className="hidden lg:block mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
+                            >
+                                ⚡ Quick Fuel Entry
+                            </button>
+                            <button
+                                onClick={onNewCustomer}
+                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
+                            >
+                                + New Customer
+                            </button>
+                            <button
+                                onClick={onNewOrder}
+                                className="mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
+                            >
+                                + Aircraft Arrival
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Active Orders Today</div>
+                            <div className="text-3xl font-bold mustang-red-text mt-2">{activeOrders.length}</div>
+                        </div>
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Total Customers</div>
+                            <div className="text-3xl font-bold text-green-600 mt-2">{customers.length}</div>
+                        </div>
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Completed Today</div>
+                            <div className="text-3xl font-bold text-gray-700 mt-2">
+                                {todayOrders.filter(o => o.status === 'finalized').length}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Active Orders */}
+                    <div className="bg-white rounded-lg shadow-lg p-6">
+                        <h3 className="text-xl font-bold mb-4 text-gray-800">Active Orders</h3>
+                        {activeOrders.length === 0 ? (
+                            <p className="text-gray-500 text-center py-8">No active orders. Click "Aircraft Arrival" to start.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {activeOrders.map(order => {
+                                    const customer = customers.find(c => c.id === order.customerId);
+                                    return (
+                                        <OrderCard
+                                            key={order.id}
+                                            order={order}
+                                            customer={customer}
+                                            updateOrderStatus={updateOrderStatus}
+                                            addTicket={addTicket}
+                                            messages={messages}
+                                            addMessage={addMessage}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // === MESSAGING FEATURE START ===
+        function OrderMessageThread({ order, rampNote, setRampNote }) {
+            return (
+                <div className="mt-3 border-t pt-3">
+                    <div className="text-xs font-bold text-gray-500 uppercase mb-1">📝 Notes for Front Desk</div>
+                    <div className="text-xs text-gray-400 italic mb-2">Typed here automatically forwards when you complete the order.</div>
+                    <textarea
+                        value={rampNote}
+                        onChange={e => setRampNote(e.target.value)}
+                        placeholder="e.g. Pilot requested receipt, left main low on oil, crew car out front..."
+                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                        rows="2"
+                    />
+                </div>
+            );
+        }
+
+        function ChatView({ messages, orders, addMessage, onOpen }) {
+            const [text, setText] = useState('');
+            const [sender, setSender] = useState('RAMP');
+            const endRef = React.useRef(null);
+
+            // General chat = messages with no orderId
+            const generalMsgs = messages.filter(m => !m.orderId)
+                .sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            useEffect(() => {
+                onOpen && onOpen();
+                endRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, []);
+
+            useEffect(() => {
+                endRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [generalMsgs.length]);
+
+            const handleSend = () => {
+                if (!text.trim()) return;
+                addMessage(text.trim(), sender, null, null);
+                setText('');
+            };
+
+            return (
+                <div className="flex flex-col" style={{height: 'calc(100vh - 160px)'}}>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-gray-800">💬 Ramp Chat</h2>
+                        <div className="text-sm text-gray-500">General team communication — no radios needed</div>
+                    </div>
+                    
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto bg-gray-50 rounded-xl p-4 mb-4 space-y-2 border border-gray-200">
+                        {generalMsgs.length === 0 && (
+                            <div className="text-center text-gray-400 py-16">
+                                <div className="text-4xl mb-3">💬</div>
+                                <div className="font-medium">No messages yet</div>
+                                <div className="text-sm mt-1">Use this for general ramp-to-office communication</div>
+                            </div>
+                        )}
+                        {generalMsgs.map(m => (
+                            <div key={m.id} className={`flex ${m.sender === 'OFFICE' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-xs rounded-2xl px-4 py-2 ${
+                                    m.sender === 'RAMP' 
+                                    ? 'bg-blue-600 text-white rounded-tl-sm' 
+                                    : 'bg-gray-700 text-white rounded-tr-sm'
+                                }`}>
+                                    <div className="text-xs font-bold opacity-75 mb-0.5">{m.sender}</div>
+                                    <div className="text-sm">{m.text}</div>
+                                    <div className="text-xs opacity-50 mt-1 text-right">
+                                        {new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={endRef} />
+                    </div>
+
+                    {/* Input */}
+                    <div className="flex gap-3 items-center bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                        <select value={sender} onChange={e=>setSender(e.target.value)} 
+                            className="text-sm font-bold border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-400">
+                            <option value="RAMP">⚙️ Ramp</option>
+                            <option value="OFFICE">💼 Office</option>
+                        </select>
+                        <input
+                            value={text}
+                            onChange={e=>setText(e.target.value)}
+                            onKeyDown={e=>e.key==='Enter'&&handleSend()}
+                            placeholder="Type a message and press Enter..."
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 text-sm"
+                        />
+                        <button onClick={handleSend}
+                            className="mustang-red mustang-red-hover text-white px-5 py-2 rounded-lg font-bold transition">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        // === MESSAGING FEATURE END ===
+
+        // === CALENDAR FEATURE START ===
+        function CalendarView({ orders }) {
+            const [calView, setCalView] = useState('month'); // 'month', 'week', 'day'
+            const [current, setCurrent] = useState(new Date());
+
+            const startOf = (d, unit) => {
+                const dt = new Date(d);
+                if (unit === 'month') { dt.setDate(1); dt.setHours(0,0,0,0); }
+                if (unit === 'week') { const day = dt.getDay(); dt.setDate(dt.getDate() - day); dt.setHours(0,0,0,0); }
+                if (unit === 'day') { dt.setHours(0,0,0,0); }
+                return dt;
+            };
+
+            const isSameDay = (a, b) => {
+                const da = new Date(a), db = new Date(b);
+                return da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth() && da.getDate()===db.getDate();
+            };
+
+            const navigate = (dir) => {
+                const d = new Date(current);
+                if (calView === 'month') d.setMonth(d.getMonth() + dir);
+                if (calView === 'week') d.setDate(d.getDate() + dir * 7);
+                if (calView === 'day') d.setDate(d.getDate() + dir);
+                setCurrent(d);
+            };
+
+            // Build events from orders: arrival = createdAt, departure = departureDate
+            const getEvents = (date) => {
+                const events = [];
+                orders.forEach(o => {
+                    const tail = o.tailNumber || o.aircraft || '?';
+                    const customer = o.customerName || o.pilotName || '';
+                    if (o.createdAt && isSameDay(o.createdAt, date)) {
+                        events.push({ type: 'arrival', tail, customer, time: new Date(o.createdAt), order: o });
+                    }
+                    if (o.departureDate && isSameDay(o.departureDate, date)) {
+                        const depTime = o.departureTime
+                            ? (() => { const d = new Date(o.departureDate); const [h,m] = o.departureTime.split(':'); d.setHours(+h,+m); return d; })()
+                            : new Date(o.departureDate);
+                        events.push({ type: 'departure', tail, customer, time: depTime, order: o });
+                    }
+                });
+                return events.sort((a,b) => a.time - b.time);
+            };
+
+            const EventPill = ({ ev }) => (
+                <div className={`text-xs px-1.5 py-0.5 rounded font-semibold truncate mb-0.5 ${
+                    ev.type === 'arrival'
+                    ? 'bg-green-100 text-green-800 border border-green-300'
+                    : 'bg-blue-100 text-blue-800 border border-blue-300'
+                }`} title={`${ev.type === 'arrival' ? '✈️ ARR' : '🛫 DEP'} ${ev.tail} ${ev.customer} ${ev.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`}>
+                    {ev.type === 'arrival' ? '↓' : '↑'} {ev.tail}
+                </div>
+            );
+
+            // ---- MONTH VIEW ----
+            const MonthView = () => {
+                const monthStart = startOf(current, 'month');
+                const monthEnd = new Date(current.getFullYear(), current.getMonth()+1, 0);
+                const startPad = monthStart.getDay();
+                const days = [];
+                for (let i = 0; i < startPad; i++) days.push(null);
+                for (let d = 1; d <= monthEnd.getDate(); d++) days.push(new Date(current.getFullYear(), current.getMonth(), d));
+                const today = new Date();
+                return (
+                    <div>
+                        <div className="grid grid-cols-7 mb-1">
+                            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                                <div key={d} className="text-center text-xs font-bold text-gray-500 py-2">{d}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {days.map((day, i) => {
+                                if (!day) return <div key={`pad-${i}`} />;
+                                const evs = getEvents(day);
+                                const isToday = isSameDay(day, today);
+                                return (
+                                    <div key={day.toISOString()} className={`min-h-20 rounded-lg p-1.5 border ${isToday ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'} cursor-pointer hover:shadow-md transition`}
+                                        onClick={() => { setCurrent(day); setCalView('day'); }}>
+                                        <div className={`text-xs font-bold mb-1 ${isToday ? 'text-red-600' : 'text-gray-700'}`}>{day.getDate()}</div>
+                                        {evs.slice(0,3).map((ev,j) => <EventPill key={j} ev={ev} />)}
+                                        {evs.length > 3 && <div className="text-xs text-gray-400">+{evs.length-3} more</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            // ---- WEEK VIEW ----
+            const WeekView = () => {
+                const weekStart = startOf(current, 'week');
+                const days = Array.from({length:7}, (_,i) => { const d = new Date(weekStart); d.setDate(d.getDate()+i); return d; });
+                const today = new Date();
+                return (
+                    <div className="grid grid-cols-7 gap-1">
+                        {days.map(day => {
+                            const evs = getEvents(day);
+                            const isToday = isSameDay(day, today);
+                            return (
+                                <div key={day.toISOString()} className={`rounded-lg border ${isToday ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'} overflow-hidden`}>
+                                    <div className={`text-center text-xs font-bold py-2 ${isToday ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                        {day.toLocaleDateString([],{weekday:'short'})}<br/>
+                                        <span className="text-lg">{day.getDate()}</span>
+                                    </div>
+                                    <div className="p-1 min-h-32">
+                                        {evs.length === 0 && <div className="text-xs text-gray-300 text-center mt-4">—</div>}
+                                        {evs.map((ev,j) => (
+                                            <div key={j} className={`text-xs p-1.5 rounded mb-1 border-l-4 ${ev.type==='arrival' ? 'bg-green-50 border-green-500' : 'bg-blue-50 border-blue-500'}`}>
+                                                <div className="font-bold">{ev.type==='arrival' ? '↓ ARR' : '↑ DEP'}</div>
+                                                <div className="font-mono">{ev.tail}</div>
+                                                {ev.customer && <div className="text-gray-500 truncate">{ev.customer}</div>}
+                                                <div className="text-gray-400">{ev.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            };
+
+            // ---- DAY VIEW ----
+            const DayView = () => {
+                const evs = getEvents(current);
+                const hours = Array.from({length:24}, (_,i) => i);
+                const getEventsForHour = (h) => evs.filter(ev => ev.time.getHours() === h);
+                return (
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-3 font-bold text-gray-700 text-center">
+                            {current.toLocaleDateString([],{weekday:'long', month:'long', day:'numeric', year:'numeric'})}
+                        </div>
+                        {evs.length === 0 && (
+                            <div className="text-center text-gray-400 py-16 text-lg">No arrivals or departures scheduled</div>
+                        )}
+                        <div className="overflow-y-auto max-h-[600px]">
+                            {hours.map(h => {
+                                const hEvs = getEventsForHour(h);
+                                if (evs.length > 0 && hEvs.length === 0 && (h < (evs[0]?.time.getHours()-1) || h > (evs[evs.length-1]?.time.getHours()+1))) return null;
+                                return (
+                                    <div key={h} className={`flex border-b border-gray-100 min-h-12 ${hEvs.length > 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                        <div className="w-16 text-right pr-3 pt-2 text-xs text-gray-400 font-mono shrink-0">
+                                            {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h-12} PM`}
+                                        </div>
+                                        <div className="flex-1 p-1 flex flex-wrap gap-2">
+                                            {hEvs.map((ev,j) => (
+                                                <div key={j} className={`flex items-center gap-2 px-3 py-2 rounded-lg border-l-4 text-sm ${ev.type==='arrival' ? 'bg-green-50 border-green-500' : 'bg-blue-50 border-blue-500'}`}>
+                                                    <span className="text-lg">{ev.type==='arrival' ? '✈️' : '🛫'}</span>
+                                                    <div>
+                                                        <div className="font-bold">{ev.type==='arrival' ? 'ARRIVAL' : 'DEPARTURE'} — {ev.tail}</div>
+                                                        {ev.customer && <div className="text-gray-500 text-xs">{ev.customer}</div>}
+                                                        <div className="text-gray-400 text-xs">{ev.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            const headerLabel = () => {
+                if (calView === 'month') return current.toLocaleDateString([],{month:'long', year:'numeric'});
+                if (calView === 'week') {
+                    const ws = startOf(current, 'week');
+                    const we = new Date(ws); we.setDate(we.getDate()+6);
+                    return `${ws.toLocaleDateString([],{month:'short',day:'numeric'})} – ${we.toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'})}`;
+                }
+                return current.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+            };
+
+            const totalArrivals = orders.filter(o => o.createdAt).length;
+            const totalDepartures = orders.filter(o => o.departureDate).length;
+
+            return (
+                <div>
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-800">📅 Flight Calendar</h2>
+                            <p className="text-gray-500 text-sm mt-1">
+                                <span className="inline-flex items-center gap-1 mr-4"><span className="w-3 h-3 rounded bg-green-400 inline-block"></span> {totalArrivals} Arrivals</span>
+                                <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-400 inline-block"></span> {totalDepartures} Departures</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* View switcher */}
+                            <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                                {['month','week','day'].map(v => (
+                                    <button key={v} onClick={() => setCalView(v)}
+                                        className={`px-4 py-2 text-sm font-semibold transition ${calView===v ? 'mustang-red text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                                        {v.charAt(0).toUpperCase()+v.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Nav */}
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => navigate(-1)} className="p-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 font-bold">‹</button>
+                                <button onClick={() => setCurrent(new Date())} className="px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-sm font-semibold">Today</button>
+                                <button onClick={() => navigate(1)} className="p-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 font-bold">›</button>
+                            </div>
+                            <span className="font-bold text-gray-700 text-lg">{headerLabel()}</span>
+                        </div>
+                    </div>
+
+                    {calView === 'month' && <MonthView />}
+                    {calView === 'week' && <WeekView />}
+                    {calView === 'day' && <DayView />}
+                </div>
+            );
+        }
+        // === CALENDAR FEATURE END ===
+
+        function CompletionModal({ order, customer, initialNote, onClose, onConfirm }) {
+            const [actualFuel, setActualFuel] = useState(order.fuelQuantity || '');
+            const [completionNotes, setCompletionNotes] = useState(initialNote || '');
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+                        <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-4">
+                            <div className="text-xl font-bold">✅ Complete Service</div>
+                            <div className="text-sm opacity-90 mt-1">
+                                {customer?.tailNumber} — {customer?.pilotName || customer?.ownerName}
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {order.fuelType && (
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-wide">
+                                        ⛽ Actual Gallons Pumped ({order.fuelType})
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={actualFuel}
+                                        onChange={e => setActualFuel(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg text-2xl font-bold text-center focus:outline-none focus:border-orange-500"
+                                        placeholder="0"
+                                        autoFocus
+                                    />
+                                    {order.fuelQuantity > 0 && (
+                                        <div className="text-xs text-gray-500 mt-1 text-center">
+                                            Customer requested: {order.fuelQuantity} gal
+                                            {actualFuel && parseInt(actualFuel) !== order.fuelQuantity && (
+                                                <span className="text-orange-600 font-medium"> — billing {actualFuel} gal</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-wide">
+                                    📝 Notes for Front Desk
+                                </label>
+                                <textarea
+                                    value={completionNotes}
+                                    onChange={e => setCompletionNotes(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                                    rows="3"
+                                    placeholder="e.g. Pilot requested receipt, left main low on oil, customer wants callback before departure..."
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-medium transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => onConfirm(actualFuel, completionNotes)}
+                                    className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-4 py-3 rounded-lg font-bold transition"
+                                >
+                                    📢 Notify Front Desk
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function OrderCard({ order, customer, updateOrderStatus, addTicket, messages, addMessage }) {
+            const [editedFuel, setEditedFuel] = useState(order.fuelQuantity || 0);
+            const [editedServices, setEditedServices] = useState(order.services || []);
+            const [showCompleteModal, setShowCompleteModal] = useState(false);
+            const [rampNote, setRampNote] = useState('');
+            const [showFuelVerify, setShowFuelVerify] = useState(false);
+            const [fuelVerified, setFuelVerified] = useState(false);
+            const [fuelTypeInput, setFuelTypeInput] = useState('');
+            const [fuelVerifyError, setFuelVerifyError] = useState(false);
+            
+            const statusColors = {
+                pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                'in-progress': 'bg-blue-100 text-blue-800 border-blue-300',
+                ready: 'bg-orange-100 text-orange-800 border-orange-300',
+                completed: 'bg-green-100 text-green-800 border-green-300',
+                finalized: 'bg-gray-100 text-gray-800 border-gray-300'
+            };
+
+            const handleSaveAndNotify = (actualFuel, completionNotes) => {
+                const updatedOrder = {
+                    ...order,
+                    fuelQuantity: actualFuel ? parseInt(actualFuel) : order.fuelQuantity,
+                    services: editedServices,
+                    completionNotes: completionNotes || '',
+                    completedAt: new Date().toISOString(),
+                    status: 'ready'
+                };
+                
+                // Save to storage
+                const orders = Storage.get('fbo_orders') || [];
+                const updatedOrders = orders.map(o => o.id === order.id ? updatedOrder : o);
+                Storage.set('fbo_orders', updatedOrders);
+                
+                // Sync to Google Sheets
+                syncToSheets('updateOrder', { order: updatedOrder });
+                
+                // Update status in parent — pass all fields so React state stays in sync
+                updateOrderStatus(order.id, 'ready', {
+                    fuelQuantity: actualFuel ? parseInt(actualFuel) : order.fuelQuantity,
+                    completionNotes: completionNotes || '',
+                    completedAt: new Date().toISOString(),
+                });
+                setShowCompleteModal(false);
+            };
+
+            return (
+                <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-3">
+                        <div>
+                            <div className="font-bold text-lg mustang-red-text">{customer?.tailNumber || 'Unknown'}</div>
+                            <div className="text-gray-600">{customer?.aircraftType || 'Unknown Type'}</div>
+                            <div className="text-sm text-gray-500">{customer?.pilotName || customer?.ownerName}</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[order.status]}`}>
+                                {order.status.replace('-', ' ').toUpperCase()}
+                            </span>
+                            <div className="text-xs text-gray-500">
+                                {new Date(order.createdAt).toLocaleTimeString()}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mb-3">
+                        {order.fuelType && (
+                            <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded-lg">
+                                <div className="font-semibold text-blue-900 mb-2">⛽ Fuel Service</div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-sm text-gray-600">Actual Gallons Pumped:</label>
+                                        <input
+                                            type="number"
+                                            value={editedFuel}
+                                            onChange={(e) => setEditedFuel(parseInt(e.target.value) || 0)}
+                                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg font-bold text-lg"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-700 mt-5">
+                                        {order.fuelType}
+                                    </div>
+                                </div>
+                                {order.fuelQuantity !== editedFuel && (
+                                    <div className="mt-2 text-sm text-orange-600">
+                                        ⚠️ Customer requested {order.fuelQuantity}gal, you're billing {editedFuel}gal
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {order.hangar && (
+                            <div className="bg-gray-50 p-2 rounded mt-2">
+                                <span className="font-medium">Hangar:</span> {order.hangar}
+                            </div>
+                        )}
+                        {order.services && order.services.length > 0 && (
+                            <div className="bg-gray-50 p-2 rounded mt-2">
+                                <span className="font-medium">Services:</span> {order.services.join(', ')}
+                            </div>
+                        )}
+                    </div>
+
+                    {order.notes && (
+                        <div className="text-sm text-gray-600 mb-3 bg-blue-50 p-2 rounded">
+                            <span className="font-medium">Notes:</span> {order.notes}
+                        </div>
+                    )}
+                    {order.departureDate && (
+                        <div className="text-sm text-gray-600 mb-3 bg-green-50 border border-green-200 p-2 rounded">
+                            <span className="font-medium">✈️ Departure:</span> {new Date(order.departureDate + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'})}
+                            {order.departureTime && ` at ${(() => { const [h,m] = order.departureTime.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return ((h % 12) || 12) + ':' + m + ' ' + ampm; })()}`}
+                        </div>
+                    )}
+
+                    {/* === MESSAGING FEATURE START === */}
+                    {order.status === 'in-progress' && (
+                        <OrderMessageThread order={order} rampNote={rampNote} setRampNote={setRampNote} />
+                    )}
+                    {/* === MESSAGING FEATURE END === */}
+                    <div className="flex gap-2">
+                        {order.status === 'pending' && (
+                            <button
+                                onClick={() => order.fuelType ? setShowFuelVerify(true) : updateOrderStatus(order.id, 'in-progress')}
+                                className="mustang-red mustang-red-hover text-white px-4 py-2 rounded text-sm font-medium transition"
+                            >
+                                ▶️ Start Service
+                            </button>
+                        )}
+                        {order.status === 'in-progress' && (
+                            <button
+                                onClick={() => setShowCompleteModal(true)}
+                                className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold transition flex-1"
+                            >
+                                ✅ COMPLETE - Send to Front Desk
+                            </button>
+                        )}
+                        {order.status === 'in-progress' && !order.fuelType && (
+                            <button
+                                onClick={() => updateOrderStatus(order.id, 'ready')}
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+                            >
+                                ✅ Complete (No Fuel)
+                            </button>
+                        )}
+                    </div>
+                    {showFuelVerify && (
+                        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
+                                <div className={`px-6 py-4 text-white ${order.fuelType === '100LL' ? 'bg-blue-600' : 'bg-black'}`}>
+                                    <div className="text-2xl font-black tracking-wide">⚠️ FUEL VERIFICATION</div>
+                                    <div className="text-sm opacity-90 mt-1">{customer?.tailNumber} — {customer?.aircraftType}</div>
+                                </div>
+                                <div className="p-6">
+                                    <div className="text-center mb-4">
+                                        <div className="text-gray-600 text-sm mb-1">This aircraft requires:</div>
+                                        <div className={`text-5xl font-black tracking-widest ${order.fuelType === '100LL' ? 'text-blue-600' : 'text-gray-900'}`}>
+                                            {order.fuelType}
+                                        </div>
+                                        <div className="text-gray-500 text-sm mt-1">{order.fuelQuantity} gallons requested</div>
+                                    </div>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                                            Type the fuel type to confirm:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={fuelTypeInput}
+                                            onChange={e => { setFuelTypeInput(e.target.value.toUpperCase()); setFuelVerifyError(false); }}
+                                            placeholder={`Type "${order.fuelType}" to confirm`}
+                                            className={`w-full px-4 py-3 border-2 rounded-lg text-xl font-bold text-center tracking-widest focus:outline-none ${fuelVerifyError ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'}`}
+                                            autoFocus
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
+                                                        setFuelVerified(true);
+                                                        setShowFuelVerify(false);
+                                                        updateOrderStatus(order.id, 'in-progress');
+                                                    } else {
+                                                        setFuelVerifyError(true);
+                                                        setFuelTypeInput('');
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        {fuelVerifyError && (
+                                            <div className="text-red-600 text-sm font-bold text-center mt-2">
+                                                ✗ Incorrect — type exactly: {order.fuelType}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => { setShowFuelVerify(false); setFuelTypeInput(''); setFuelVerifyError(false); }}
+                                            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-medium transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
+                                                    setFuelVerified(true);
+                                                    setShowFuelVerify(false);
+                                                    updateOrderStatus(order.id, 'in-progress');
+                                                } else {
+                                                    setFuelVerifyError(true);
+                                                    setFuelTypeInput('');
+                                                }
+                                            }}
+                                            className={`flex-1 text-white px-4 py-3 rounded-lg font-bold transition ${order.fuelType === '100LL' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-800 hover:bg-gray-900'}`}
+                                        >
+                                            Confirm & Start
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {showCompleteModal && (
+                        <CompletionModal
+                            order={order}
+                            customer={customer}
+                            initialNote={rampNote}
+                            onClose={() => setShowCompleteModal(false)}
+                            onConfirm={handleSaveAndNotify}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function OfficeView({ orders, customers, tickets, updateOrderStatus, recallOrder, resolveTicket, deleteTicket, generateCompletionEmail, messages, addMessage }) {
+            const [filter, setFilter] = useState('today'); // 'today', 'week', 'all', 'archive'
+            
+            const pendingTickets = tickets.filter(t => t.status === 'pending');
+            const readyToBillOrders = orders.filter(o => o.status === 'ready');
+
+            // === PRE-DEPARTURE EMAIL FEATURE ===
+            // TODO: FIREBASE UPGRADE NEEDED — currently manual trigger only.
+            // When Firebase is added, replace this with a Cloud Function (Firebase Scheduler)
+            // that runs daily at 8:00 AM and auto-sends these emails without anyone
+            // needing to be at the desk. See: firebase.google.com/docs/functions/schedule-functions
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            const preDepartureOrders = orders.filter(o =>
+                o.departureDate === tomorrowStr &&
+                o.status !== 'finalized' &&
+                !o.preDepartureSent
+            );
+
+            const generatePreDepartureEmail = (order, customer) => {
+                const depTime = order.departureTime
+                    ? (() => { const [h,m] = order.departureTime.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return ((h % 12) || 12) + ':' + m + ' ' + ampm; })()
+                    : 'your scheduled time';
+
+                const subject = `See You Tomorrow - ${customer?.tailNumber} - Mustang Aviation`;
+                const body = `Dear ${customer?.pilotName || customer?.ownerName || 'Valued Customer'},
+
+We wanted to touch base ahead of your departure tomorrow at ${depTime}.
+
+Your aircraft ${customer?.tailNumber} (${customer?.aircraftType}) is all set. Is there anything you need before you head out?
+
+- Top-off fuel before departure
+- Crew car
+- Any additional services
+
+Just reply to this email or give us a call and we will have everything ready for you.
+
+info@mustangaviation.aero
+www.mustangaviation.aero
+
+We look forward to seeing you tomorrow.
+
+Mustang Aviation
+Pierre Regional Airport (KPIR)
+Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
+
+"Where the Midwest Meets the Wild West"`;
+
+                const mailtoLink = `mailto:${customer?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.location.href = mailtoLink;
+
+                // Mark as sent
+                const stored = JSON.parse(localStorage.getItem('fbo_orders') || '[]');
+                const updated = stored.map(o => o.id === order.id ? {...o, preDepartureSent: true} : o);
+                localStorage.setItem('fbo_orders', JSON.stringify(updated));
+            };
+            // === END PRE-DEPARTURE EMAIL FEATURE ===
+            
+            const filteredOrders = orders.filter(o => {
+                const orderDate = new Date(o.createdAt);
+                const now = new Date();
+                
+                if (filter === 'archive') {
+                    // Archive shows only finalized orders
+                    return o.status === 'finalized';
+                } else if (filter === 'today') {
+                    return orderDate.toDateString() === now.toDateString();
+                } else if (filter === 'week') {
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    return orderDate >= weekAgo;
+                }
+                return true;
+            });
+
+            const totalJetA = filteredOrders.reduce((sum, o) => {
+                if (o.fuelType === 'Jet-A' && o.fuelQuantity) {
+                    return sum + o.fuelQuantity;
+                }
+                return sum;
+            }, 0);
+
+            const total100LL = filteredOrders.reduce((sum, o) => {
+                if (o.fuelType === '100LL' && o.fuelQuantity) {
+                    return sum + o.fuelQuantity;
+                }
+                return sum;
+            }, 0);
+
+            return (
+                <div>
+                    <div className="mb-6">
+                        <h2 className="text-3xl font-bold text-gray-800 mb-2">Front Desk</h2>
+                        <p className="text-gray-600">Ready-to-bill aircraft and customer billing</p>
+                    </div>
+
+                    {/* === PRE-DEPARTURE EMAIL ALERT === */}
+                    {/* TODO: FIREBASE UPGRADE — auto-send these at 8AM daily without manual trigger */}
+                    {preDepartureOrders.length > 0 && (
+                        <div className="bg-blue-600 text-white rounded-lg p-5 mb-6 shadow-xl">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-3xl">✈️</span>
+                                <div>
+                                    <h3 className="text-xl font-bold">Pre-Departure Emails Ready ({preDepartureOrders.length})</h3>
+                                    <p className="text-sm opacity-90">These aircraft are departing tomorrow — send a courtesy check-in</p>
+                                </div>
+                            </div>
+                            <div className="space-y-2 mt-3">
+                                {preDepartureOrders.map(order => {
+                                    const customer = customers.find(c => c.id === order.customerId);
+                                    const depTime = order.departureTime
+                                        ? (() => { const [h,m] = order.departureTime.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return ((h % 12) || 12) + ':' + m + ' ' + ampm; })()
+                                        : 'TBD';
+                                    return (
+                                        <div key={order.id} className="bg-white/15 rounded-lg px-4 py-3 flex justify-between items-center">
+                                            <div>
+                                                <span className="font-bold">{customer?.tailNumber}</span>
+                                                <span className="opacity-90 ml-2">{customer?.pilotName || customer?.ownerName}</span>
+                                                <span className="text-sm opacity-75 ml-2">— departs tomorrow at {depTime}</span>
+                                                {!customer?.email && <span className="ml-2 text-yellow-300 text-xs font-bold">⚠️ No email on file</span>}
+                                            </div>
+                                            <button
+                                                onClick={() => generatePreDepartureEmail(order, customer)}
+                                                disabled={!customer?.email}
+                                                className="bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-medium text-sm transition"
+                                            >
+                                                📧 Send Email
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* === END PRE-DEPARTURE EMAIL ALERT === */}
+
+                    {/* READY TO BILL - BIG ALERT */}
+                    {readyToBillOrders.length > 0 && (
+                        <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg p-6 mb-6 shadow-xl">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="text-4xl">🔔</span>
+                                        <h3 className="text-2xl font-bold">
+                                            READY TO BILL ({readyToBillOrders.length})
+                                        </h3>
+                                    </div>
+                                    <p className="opacity-90">Aircraft service completed - ready for customer billing</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 space-y-3">
+                                {readyToBillOrders.map(order => {
+                                    const customer = customers.find(c => c.id === order.customerId);
+                                    return (
+                                        <div key={order.id} className="bg-white/10 backdrop-blur rounded-lg p-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="font-bold text-xl">{order.tailNumber}</div>
+                                                        {!customer?.email && (
+                                                            <span className="text-xs bg-white bg-opacity-30 text-white font-bold px-2 py-0.5 rounded-full">⚠️ No email on file</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="opacity-90">
+                                                        {customer?.pilotName} • {order.aircraft}
+                                                    </div>
+                                                    <div className="text-sm opacity-75 mt-1">
+                                                        {order.fuelQuantity}gal {order.fuelType}
+                                                        {order.services?.length > 0 && ` • ${order.services.length} services`}
+                                                    </div>
+                                                    {order.completionNotes && (
+                                                        <div className="text-sm mt-2 bg-black bg-opacity-20 rounded-lg px-3 py-2">
+                                                            🔒 <span className="font-medium">Internal note:</span> {order.completionNotes}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => recallOrder(order.id)}
+                                                        className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-600 transition"
+                                                        title="Send back to ramp"
+                                                    >
+                                                        ↩️ Recall to Ramp
+                                                    </button>
+                                                    <button
+                                                        onClick={() => generateCompletionEmail(order, customer)}
+                                                        className="bg-white text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition"
+                                                    >
+                                                        📧 Email Customer
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateOrderStatus(order.id, 'finalized')}
+                                                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition"
+                                                    >
+                                                        ✅ Finalize & Archive
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Pending Tickets from Ramp */}
+                    {pendingTickets.length > 0 && (
+                        <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-2xl">📢</span>
+                                <h3 className="text-xl font-bold text-orange-800">
+                                    Ramp Notifications ({pendingTickets.length})
+                                </h3>
+                            </div>
+                            <div className="space-y-2">
+                                {pendingTickets.map(ticket => {
+                                    const order = orders.find(o => o.id === ticket.orderId);
+                                    const customer = customers.find(c => c.id === ticket.customerId);
+                                    return (
+                                        <div key={ticket.id} className="bg-white rounded-lg p-4 border border-orange-200">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <div className="font-bold text-lg mustang-red-text">
+                                                        {ticket.tailNumber}
+                                                    </div>
+                                                    <div className="text-gray-700 font-medium">
+                                                        {ticket.message}
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 mt-1">
+                                                        {new Date(ticket.createdAt).toLocaleTimeString()} - {ticket.submittedBy}
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            generateCompletionEmail(order, customer);
+                                                        }}
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+                                                        title="Send completion email"
+                                                    >
+                                                        📧 Email
+                                                    </button>
+                                                    <button
+                                                        onClick={() => resolveTicket(ticket.id)}
+                                                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+                                                    >
+                                                        ✓ Resolve
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteTicket(ticket.id)}
+                                                        className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm font-medium transition"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Filter Tabs */}
+                    <div className="flex gap-2 mb-6">
+                        <button
+                            onClick={() => setFilter('today')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${
+                                filter === 'today' 
+                                ? 'mustang-red text-white' 
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            📅 Today
+                        </button>
+                        <button
+                            onClick={() => setFilter('week')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${
+                                filter === 'week' 
+                                ? 'mustang-red text-white' 
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            📊 This Week
+                        </button>
+                        <button
+                            onClick={() => setFilter('all')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${
+                                filter === 'all' 
+                                ? 'mustang-red text-white' 
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            📋 All Time
+                        </button>
+                        <button
+                            onClick={() => setFilter('archive')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${
+                                filter === 'archive' 
+                                ? 'mustang-red text-white' 
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            🗄️ Archive
+                        </button>
+                    </div>
+
+                    {/* Fuel Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Total Orders</div>
+                            <div className="text-3xl font-bold mustang-red-text mt-2">{filteredOrders.length}</div>
+                        </div>
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Jet-A Gallons</div>
+                            <div className="text-3xl font-bold text-blue-600 mt-2">{totalJetA.toLocaleString()}</div>
+                        </div>
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">100LL Gallons</div>
+                            <div className="text-3xl font-bold text-green-600 mt-2">{total100LL.toLocaleString()}</div>
+                        </div>
+                        <div className="stat-card p-6">
+                            <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Hangar Requests</div>
+                            <div className="text-3xl font-bold text-purple-600 mt-2">
+                                {filteredOrders.filter(o => o.hangar).length}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-100 border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Time</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Tail #</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Aircraft</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Fuel</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Services</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredOrders.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                                No orders for selected period
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredOrders.map(order => {
+                                            const customer = customers.find(c => c.id === order.customerId);
+                                            return (
+                                                <tr key={order.id} className="hover:bg-gray-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                        {new Date(order.createdAt).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                                        {customer?.tailNumber}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                        {customer?.aircraftType}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                        {order.fuelType ? `${order.fuelQuantity} gal ${order.fuelType}` : '-'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                                        {order.hangar || ''} {order.services?.join(', ') || '-'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                            order.status === 'finalized' ? 'bg-gray-100 text-gray-800' :
+                                                            order.status === 'ready' ? 'bg-orange-100 text-orange-800' :
+                                                            order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                            order.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                                                            'bg-yellow-100 text-yellow-800'
+                                                        }`}>
+                                                            {order.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        {order.status === 'finalized' && (
+                                                            <button
+                                                                onClick={() => recallOrder(order.id)}
+                                                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-medium transition mr-2"
+                                                                title="Recall to front desk"
+                                                            >
+                                                                ↩️ Recall
+                                                            </button>
+                                                        )}
+                                                        {(order.status === 'completed' || order.status === 'finalized') && customer?.email && (
+                                                            <button
+                                                                onClick={() => generateCompletionEmail(order, customer)}
+                                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition"
+                                                                title="Send completion email"
+                                                            >
+                                                                📧 Email
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function CustomerView({ customers, orders, updateCustomer, onNewCustomer }) {
+            const [searchTerm, setSearchTerm] = useState('');
+            
+            const filteredCustomers = customers.filter(c => 
+                c.tailNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.pilotName?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-gray-800">Customer Database</h2>
+                        <button
+                            onClick={onNewCustomer}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
+                        >
+                            + New Customer
+                        </button>
+                    </div>
+
+                    {/* Search */}
+                    <div className="bg-white rounded-lg shadow p-4 mb-6">
+                        <input
+                            type="text"
+                            placeholder="Search by tail number, owner, or pilot name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                        />
+                    </div>
+
+                    {/* Customer Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredCustomers.length === 0 ? (
+                            <div className="col-span-full text-center py-12 text-gray-500">
+                                {searchTerm ? 'No customers found' : 'No customers yet. Add your first customer!'}
+                            </div>
+                        ) : (
+                            filteredCustomers.map(customer => {
+                                const customerOrders = orders.filter(o => o.customerId === customer.id);
+                                return (
+                                    <div key={customer.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <div className="text-2xl font-bold mustang-red-text">{customer.tailNumber}</div>
+                                                <div className="text-gray-600">{customer.aircraftType}</div>
+                                            </div>
+                                            <span className="mustang-red text-white px-2 py-1 rounded text-xs font-medium">
+                                                {customerOrders.length} orders
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="space-y-2 text-sm">
+                                            {customer.ownerName && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Owner:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.ownerName}</span>
+                                                </div>
+                                            )}
+                                            {customer.pilotName && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Pilot:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.pilotName}</span>
+                                                </div>
+                                            )}
+                                            {customer.phone && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Phone:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.phone}</span>
+                                                </div>
+                                            )}
+                                            {customer.email && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Email:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.email}</span>
+                                                </div>
+                                            )}
+                                            {customer.company && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Company:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.company}</span>
+                                                </div>
+                                            )}
+                                            {customer.homeBase && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Home Base:</span>
+                                                    <span className="text-gray-600 ml-2">{customer.homeBase}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {customer.notes && (
+                                            <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
+                                                <span className="font-medium text-gray-700">Notes:</span>
+                                                <p className="text-gray-600 mt-1">{customer.notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Phone auto-format helper
+        const formatPhone = (value) => {
+            const digits = value.replace(/\D/g, '').slice(0, 10);
+            if (digits.length <= 3) return digits;
+            if (digits.length <= 6) return digits.slice(0,3) + '-' + digits.slice(3);
+            return digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+        };
+
+        function CustomerModal({ onClose, onSave, customer }) {
+            const [formData, setFormData] = useState({
+                tailNumber: customer?.tailNumber || '',
+                aircraftType: customer?.aircraftType || '',
+                ownerName: customer?.ownerName || '',
+                pilotName: customer?.pilotName || '',
+                phone: customer?.phone || '',
+                email: customer?.email || '', // blank = girl types it in manually
+                company: customer?.company || '',
+                homeBase: customer?.homeBase || '',
+                notes: customer?.notes || ''
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.tailNumber) {
+                    alert('Tail number is required');
+                    return;
+                }
+                onSave(formData);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold mb-6 text-gray-800">
+                                {customer ? 'Edit Customer' : 'New Customer'}
+                            </h3>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Tail Number *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.tailNumber}
+                                            onChange={(e) => setFormData({...formData, tailNumber: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="N12345"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Aircraft Type
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.aircraftType}
+                                            onChange={(e) => setFormData({...formData, aircraftType: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Citation CJ3"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Owner Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.ownerName}
+                                            onChange={(e) => setFormData({...formData, ownerName: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Pilot Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.pilotName}
+                                            onChange={(e) => setFormData({...formData, pilotName: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({...formData, phone: formatPhone(e.target.value)})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="605-555-1234"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Company
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.company}
+                                            onChange={(e) => setFormData({...formData, company: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Home Base
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.homeBase}
+                                            onChange={(e) => setFormData({...formData, homeBase: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="KJFK"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Notes / Preferences
+                                    </label>
+                                    <textarea
+                                        value={formData.notes}
+                                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        rows="3"
+                                        placeholder="Preferred fuel type, special requests, etc."
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="submit"
+                                        className="flex-1 mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-medium transition"
+                                    >
+                                        Save Customer
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg font-medium transition"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function OrderModal({ customers, selectedCustomer, onClose, onSave, onNewCustomer }) {
+            const [formData, setFormData] = useState({
+                customerId: selectedCustomer?.id || '',
+                fuelType: '',
+                fuelQuantity: '',
+                hangar: '',
+                services: [],
+                notes: '',
+                departureDate: '',
+                departureTime: ''
+            });
+
+            const serviceOptions = ['GPU', 'Lavatory', 'Water', 'Catering', 'De-icing', 'Oxygen', 'Tow', 'Coffee', 'Ice'];
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.customerId) {
+                    alert('Please select a customer');
+                    return;
+                }
+                onSave(formData);
+            };
+
+            const toggleService = (service) => {
+                setFormData({
+                    ...formData,
+                    services: formData.services.includes(service)
+                        ? formData.services.filter(s => s !== service)
+                        : [...formData.services, service]
+                });
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold mb-6 text-gray-800">Aircraft Arrival / New Order</h3>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Customer / Aircraft *
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={formData.customerId}
+                                            onChange={(e) => setFormData({...formData, customerId: e.target.value})}
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Aircraft...</option>
+                                            {customers.map(c => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.tailNumber} - {c.aircraftType} ({c.ownerName || c.pilotName})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={onNewCustomer}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
+                                        >
+                                            + New
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="border-t pt-4">
+                                    <h4 className="font-bold text-gray-800 mb-3">Fuel Order</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Fuel Type
+                                            </label>
+                                            <select
+                                                value={formData.fuelType}
+                                                onChange={(e) => setFormData({...formData, fuelType: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">None</option>
+                                                <option value="JET-A">JET-A</option>
+                                                <option value="100LL">100LL</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Quantity (gallons)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={formData.fuelQuantity}
+                                                onChange={(e) => setFormData({...formData, fuelQuantity: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                placeholder="0"
+                                                disabled={!formData.fuelType}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="border-t pt-4">
+                                    <h4 className="font-bold text-gray-800 mb-3">Hangar</h4>
+                                    <select
+                                        value={formData.hangar}
+                                        onChange={(e) => setFormData({...formData, hangar: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">No Hangar</option>
+                                        <option value="Transient">Transient</option>
+                                        <option value="Overnight">Overnight</option>
+                                    </select>
+                                </div>
+
+                                <div className="border-t pt-4">
+                                    <h4 className="font-bold text-gray-800 mb-3">Services</h4>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {serviceOptions.map(service => (
+                                            <button
+                                                key={service}
+                                                type="button"
+                                                onClick={() => toggleService(service)}
+                                                className={`px-3 py-2 rounded-lg font-medium transition ${
+                                                    formData.services.includes(service)
+                                                    ? 'mustang-red text-white'
+                                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                }`}
+                                            >
+                                                {service}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="border-t pt-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Notes / Special Requests
+                                    </label>
+                                    <textarea
+                                        value={formData.notes}
+                                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        rows="3"
+                                        placeholder="Any special instructions..."
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="submit"
+                                        className="flex-1 mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-medium transition"
+                                    >
+                                        Create Order
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg font-medium transition"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function QuickFuelModal({ customers, orders, onClose, addTicket }) {
+            const [selectedOrder, setSelectedOrder] = useState('');
+            const [fuelQuantity, setFuelQuantity] = useState('');
+            const [notes, setNotes] = useState('');
+
+            // Get only in-progress orders with fuel
+            const activeOrders = orders.filter(o => 
+                o.status === 'in-progress' && o.fuelType
+            );
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                
+                const order = orders.find(o => o.id === selectedOrder);
+                if (!order) {
+                    alert('Please select an order');
+                    return;
+                }
+
+                const customer = customers.find(c => c.id === order.customerId);
+                
+                addTicket({
+                    type: 'fueling_complete',
+                    orderId: order.id,
+                    customerId: order.customerId,
+                    tailNumber: customer?.tailNumber,
+                    aircraftType: customer?.aircraftType,
+                    fuelType: order.fuelType,
+                    fuelQuantity: fuelQuantity || order.fuelQuantity,
+                    message: `Fueling complete: ${fuelQuantity || order.fuelQuantity} gal ${order.fuelType}${notes ? ' - ' + notes : ''}`,
+                    submittedBy: 'Line Service',
+                    notes: notes
+                });
+
+                alert('Front desk notified!');
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold mb-4 text-gray-800">⚡ Quick Fuel Entry</h3>
+                            <p className="text-gray-600 mb-6">Notify front desk that fueling is complete</p>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Select Aircraft *
+                                    </label>
+                                    <select
+                                        value={selectedOrder}
+                                        onChange={(e) => {
+                                            setSelectedOrder(e.target.value);
+                                            const order = orders.find(o => o.id === e.target.value);
+                                            if (order) setFuelQuantity(order.fuelQuantity || '');
+                                        }}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent text-lg"
+                                        required
+                                    >
+                                        <option value="">Choose aircraft...</option>
+                                        {activeOrders.map(order => {
+                                            const customer = customers.find(c => c.id === order.customerId);
+                                            return (
+                                                <option key={order.id} value={order.id}>
+                                                    {customer?.tailNumber} - {order.fuelType}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {activeOrders.length === 0 && (
+                                        <p className="text-sm text-gray-500 mt-2">No active fuel orders</p>
+                                    )}
+                                </div>
+
+                                {selectedOrder && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fuel Quantity (gallons) *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={fuelQuantity}
+                                                onChange={(e) => setFuelQuantity(e.target.value)}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent text-lg"
+                                                placeholder="Enter gallons"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Notes (optional)
+                                            </label>
+                                            <textarea
+                                                value={notes}
+                                                onChange={(e) => setNotes(e.target.value)}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent text-lg"
+                                                rows="2"
+                                                placeholder="Any issues or special notes..."
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="submit"
+                                        disabled={!selectedOrder}
+                                        className="flex-1 mustang-red mustang-red-hover text-white px-6 py-4 rounded-lg font-bold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        📢 Notify Front Desk
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className="px-6 py-4 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium transition"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<FBOSystem />, document.getElementById('root'));
+    </script>
+</body>
+</html>
