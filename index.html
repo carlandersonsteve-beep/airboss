@@ -185,6 +185,15 @@
             return (o.fuelType || '').toUpperCase() === fuelType ? sum + qty : sum;
         }, 0);
 
+        const buildExportSnapshot = ({ customers, orders, tickets, messages }) => ({
+            customers,
+            orders,
+            tickets,
+            messages,
+            exportDate: new Date().toISOString(),
+            version: '1.0'
+        });
+
         function FBOSystem() {
             const [view, setView] = useState('ramp'); // 'ramp', 'office', 'customers', 'chat'
             const [customers, setCustomers] = useState([]);
@@ -281,6 +290,14 @@
                 status: order.status || 'pending'
             });
 
+            const persistOrderPatch = (orderId, patch) => {
+                setOrders(currentOrders => currentOrders.map(o => o.id === orderId ? { ...o, ...patch } : o));
+            };
+
+            const markPreDepartureSent = (orderId) => {
+                persistOrderPatch(orderId, { preDepartureSent: true });
+            };
+
             const backupOrderUpdate = (updatedOrder) => {
                 try {
                     const formData = new FormData();
@@ -328,7 +345,7 @@
 
             const addOrder = (order) => {
                 const newOrder = createOrderRecord(order);
-                setOrders([...orders, newOrder]);
+                setOrders(prev => [...prev, newOrder]);
                 setShowNewOrder(false);
                 setSelectedCustomer(null);
                 syncToSheets('addOrder', { order: newOrder });
@@ -372,13 +389,7 @@
             };
 
             const exportData = () => {
-                const data = {
-                    customers,
-                    orders,
-                    tickets,
-                    exportDate: new Date().toISOString(),
-                    version: '1.0'
-                };
+                const data = buildExportSnapshot({ customers, orders, tickets, messages });
                 
                 const dataStr = JSON.stringify(data, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
@@ -408,6 +419,7 @@
                                 setCustomers(importedData.customers || []);
                                 setOrders(importedData.orders || []);
                                 setTickets(importedData.tickets || []);
+                                setMessages(importedData.messages || []);
                                 alert('Data imported successfully!');
                             }
                         } catch (error) {
@@ -1168,11 +1180,6 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     status: 'ready'
                 };
                 
-                // Save to storage
-                const orders = Storage.get('fbo_orders') || [];
-                const updatedOrders = orders.map(o => o.id === order.id ? updatedOrder : o);
-                Storage.set('fbo_orders', updatedOrders);
-                
                 // Sync to Google Sheets
                 syncToSheets('updateOrder', { order: updatedOrder });
                 
@@ -1421,9 +1428,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 window.location.href = mailtoLink;
 
                 // Mark as sent
-                const stored = JSON.parse(localStorage.getItem('fbo_orders') || '[]');
-                const updated = stored.map(o => o.id === order.id ? {...o, preDepartureSent: true} : o);
-                localStorage.setItem('fbo_orders', JSON.stringify(updated));
+                markPreDepartureSent(order.id);
             };
             // === END PRE-DEPARTURE EMAIL FEATURE ===
             

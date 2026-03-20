@@ -80,6 +80,12 @@ In progress.
   - customers
   - tickets
 - Replaced more ad hoc `setState([...existing, newRecord])` style mutation paths with helper-backed functional updates
+- Reduced some direct storage leakage in `index.html` by:
+  - removing a direct order storage rewrite inside completion flow
+  - replacing direct localStorage pre-departure flag updates with a centralized order patch helper
+  - centralizing export snapshot creation
+  - extending import to restore messages as part of app state
+  - switching more state writes to functional update patterns
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -95,23 +101,23 @@ In progress.
 - Selector logic is beginning to move out of repeated inline expressions
 - Core order transitions are beginning to move out of ad hoc inline handlers
 - Message/customer/ticket writes are cleaner and more centralized now, but still not routed through imported `src/` modules yet
-- Most storage and sync behavior is still embedded in the old app flow and needs to be migrated incrementally
+- Storage boundaries are improving, but sync logic is still too embedded in the old app flow
+- Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 
 ## Next Recommended Steps
-1. Reduce direct localStorage usage in `index.html`
-2. Move Google sync and backup logic behind the new sync layer wrappers
-3. Continue replacing inline mutation logic with centralized helper/service flows
-4. Begin bridging selected live behaviors to actual `src/` service/repository modules
+1. Move Google sync and backup logic behind the new sync layer wrappers
+2. Continue reducing direct storage/sync side effects in `index.html`
+3. Begin bridging selected live behaviors to actual `src/` service/repository modules
+4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Once behavior is routed through the new spine, split more UI components out of the single-file HTML
 6. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
 - There may be duplicate/mirrored project files elsewhere, so canonical location should stay confirmed before heavy edits
-- Existing UI still contains direct browser storage calls
 - Existing UI still contains embedded sync logic
 - New files are scaffold-level and only partly integrated into live behavior
 - Compatibility mode is useful now, but should not become permanent architectural debt
-- Intermediate in-file service helpers are a bridge, not the desired end state
+- Intermediate in-file helpers are a bridge, not the desired end state
 
 ## Decision Log
 - Do not rewrite from scratch
@@ -124,6 +130,7 @@ In progress.
 - Use in-file selector helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderSelectors.js`
 - Use in-file transition helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderService.js`
 - Use in-file record helpers as an intermediate bridge before fully routing writes through customer/ticket/message services
+- Keep AirBoss local-first for testing until workflow quality is proven
 
 ## If Starting Fresh Next Session
 Read in this order:

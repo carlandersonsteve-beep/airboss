@@ -24,21 +24,23 @@
 - `index.html` has a compatibility bridge for legacy + canonical order statuses
 - `index.html` has centralized selector-style helpers for order filtering/counting
 - `index.html` has service-style transition helpers for core order actions
-- `index.html` now also has centralized record-creation/write helpers for:
-  - messages
-  - customers
-  - tickets
+- `index.html` has centralized record-creation/write helpers for messages/customers/tickets
+- `index.html` has reduced some direct localStorage leakage by centralizing:
+  - pre-departure sent updates
+  - export snapshot building
+  - import restoration for messages as well as core records
+  - order patch persistence helper usage
 
 ## Likely Weak Points
 - single-file HTML structure still drives the live app
 - in-browser Babel/React setup
-- localStorage is still the primary live store
+- localStorage is still the primary live store by design for this phase
 - Google sync/backup logic is still embedded in the old app flow
 - new architecture exists, but most behavior is not yet routed through `src/`
-- message/customer/ticket writes are cleaner now, but not yet delegated to imported service modules
+- sync boundaries still need cleanup even though storage boundaries are improving
 
 ## Immediate Next Focus
-- reduce direct localStorage usage in `index.html`
-- move Google sync behavior behind the new sync layer
-- continue replacing inline mutation logic with service/repository-backed flows
-- begin deciding when to switch from in-file bridge helpers to `src/` module usage
+- move Google sync/backup behavior behind explicit sync helpers
+- continue reducing direct storage/sync side effects in `index.html`
+- begin bridging selected live behaviors to actual `src/` service/repository modules
+- preserve local-first testing while improving code reliability
