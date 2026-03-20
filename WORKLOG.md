@@ -94,7 +94,11 @@ In progress.
 - Routed live order selector behavior through `window.AirBossRuntime.orderSelectors`
 - Routed live order service behavior through `window.AirBossRuntime.orderService`
 - Made `index.html` load the browser runtime bridge before the Babel app script
-- Expanded browser runtime bridging so the live app now also uses runtime-backed customer/ticket/message payload logic
+- Expanded browser runtime bridging so the live ops app now also uses runtime-backed customer/ticket/message payload logic
+- Updated `kiosk.html` to load `src/app/browserRuntime.js`
+- Replaced kiosk ad hoc customer/order payload creation with runtime-backed payload builders
+- Centralized kiosk backup behavior behind a local sync adapter helper
+- Reduced kiosk schema drift risk by aligning kiosk-created customer/order records more closely with the ops-side runtime model
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
@@ -110,15 +114,16 @@ In progress.
 - Selector logic is now bridging through the browser runtime layer
 - Core order transitions are now bridging through the browser runtime layer
 - Customer/ticket/message payload logic is now also bridging through the browser runtime layer
+- Kiosk creation logic is now also bridging through the browser runtime layer
 - Storage boundaries are improving, and sync boundaries are improving too
 - Local-first remains the correct mode for this phase; cleanup is about architecture, not infrastructure expansion
 - Browser runtime bridging is the current strategy for using `src/` architecture concepts without introducing a build system too early
 
 ## Next Recommended Steps
-1. Decide whether to bridge kiosk behavior next or begin extracting UI chunks from `index.html`
-2. Continue shrinking `index.html` responsibility without breaking local-first testing
-3. Keep local-first testing as the runtime model while cleaning internal boundaries
-4. Once behavior is routed through the new spine more broadly, split more UI components out of the single-file HTML
+1. Begin extracting major UI chunks from `index.html`, starting with `OrderCard`, `RampView`, or `OfficeView`
+2. Consider whether kiosk should also start moving step UI logic into smaller chunks
+3. Continue shrinking HTML-file responsibility without breaking local-first testing
+4. Keep local-first testing as the runtime model while cleaning internal boundaries
 5. Make a checkpoint commit after each meaningful wiring milestone
 
 ## Blockers / Risks
@@ -127,7 +132,7 @@ In progress.
 - Compatibility mode is useful now, but should not become permanent architectural debt
 - Intermediate in-file helpers and browser runtime bridges are transitional, not the final end state
 - There is still no build system, so module reuse is constrained by browser loading realities
-- Kiosk still needs the same architectural treatment if it remains part of the local-first test workflow
+- UI files remain large enough to hide workflow bugs even though data logic is getting cleaner
 
 ## Decision Log
 - Do not rewrite from scratch
@@ -143,6 +148,7 @@ In progress.
 - Keep AirBoss local-first for testing until workflow quality is proven
 - Use in-file sync adapters as an intermediate bridge before fully routing sync behavior through `src/data/sync/*`
 - Use a browser runtime bridge to start consuming `src/` architecture concepts without adding a build system yet
+- Keep kiosk and ops aligned so kiosk does not become the schema-drift side door into the system
 
 ## If Starting Fresh Next Session
 Read in this order:

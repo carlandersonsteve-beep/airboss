@@ -142,8 +142,12 @@
 <body>
     <div id="root"></div>
 
+    <script src="src/app/browserRuntime.js"></script>
     <script type="text/babel">
         const { useState } = React;
+        const runtime = window.AirBossRuntime;
+
+        const GOOGLE_FORMS_BACKUP_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse';
 
         const Storage = {
             get: (key) => {
@@ -158,6 +162,69 @@
                 localStorage.setItem(key, JSON.stringify(value));
             }
         };
+
+        const syncAdapters = {
+            async backupJsonPayload(type, payload) {
+                try {
+                    const formData = new FormData();
+                    formData.append('entry.766632014', JSON.stringify({
+                        type,
+                        timestamp: new Date().toISOString(),
+                        ...payload
+                    }));
+                    await fetch(GOOGLE_FORMS_BACKUP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: formData
+                    });
+                } catch (error) {
+                    console.log('Google Forms backup attempted (background)');
+                }
+            }
+        };
+
+        const appendStoredRecord = (key, record) => {
+            const current = Storage.get(key) || [];
+            current.push(record);
+            Storage.set(key, current);
+            return record;
+        };
+
+        const buildKioskCustomerPayload = (formData) => runtime.customerService.createCustomerPayload({
+            tailNumber: formData.tailNumber,
+            aircraftType: formData.aircraftType,
+            pilotName: formData.pilotName,
+            email: formData.email,
+            phone: formData.phone,
+            company: formData.company,
+            source: 'kiosk'
+        });
+
+        const buildKioskOrderPayload = (formData, customer) => runtime.orderService.createOrderPayload({
+            customerId: customer.id,
+            customerName: formData.pilotName,
+            tailNumber: formData.tailNumber,
+            aircraftType: formData.aircraftType,
+            aircraft: formData.aircraftType,
+            fuelType: formData.fuelType || '',
+            fuelQuantity: parseInt(formData.fuelQuantity) || 0,
+            fuelRequestedGallons: parseInt(formData.fuelQuantity) || 0,
+            hangarOvernight: formData.hangarOvernight,
+            services: formData.services,
+            arrivalTime: new Date().toISOString(),
+            purpose: formData.visitPurpose,
+            source: 'kiosk-checkin',
+            departureDate: formData.departureDate || '',
+            departureTime: formData.departureTime || ''
+        });
+
+        const buildMarketingLeadPayload = (formData) => ({
+            email: formData.email,
+            name: formData.pilotName,
+            tailNumber: formData.tailNumber,
+            company: formData.company,
+            signupDate: new Date().toISOString()
+        });
 
         function CheckInKiosk() {
             const [step, setStep] = useState(0); // 0=welcome, 1=aircraft, 2=pilot, 3=services, 4=confirm, 5=success
@@ -219,77 +286,18 @@
             };
 
             const handleSubmit = async () => {
-                const customers = Storage.get('fbo_customers') || [];
-                const customerId = Date.now().toString();
-                
-                const newCustomer = {
-                    ...formData,
-                    id: customerId,
-                    createdAt: new Date().toISOString(),
-                    source: 'kiosk'
-                };
-                customers.push(newCustomer);
-                Storage.set('fbo_customers', customers);
+                const newCustomer = appendStoredRecord('fbo_customers', buildKioskCustomerPayload(formData));
+                const newOrder = appendStoredRecord('fbo_orders', buildKioskOrderPayload(formData, newCustomer));
 
-                // Create ramp ticket with all service requests
-                const orders = Storage.get('fbo_orders') || [];
-                const newOrder = {
-                    id: 'ORDER-' + customerId,
-                    customerId: customerId,
-                    customerName: formData.pilotName,
-                    tailNumber: formData.tailNumber,
-                    aircraft: formData.aircraftType,
-                    fuelType: formData.fuelType || '',
-                    fuelQuantity: parseInt(formData.fuelQuantity) || 0,
-                    hangarOvernight: formData.hangarOvernight, // Explicit Yes/No for liability
-                    services: formData.services,
-                    status: 'pending',
-                    arrivalTime: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    purpose: formData.visitPurpose,
-                    source: 'kiosk-checkin',
-                    departureDate: formData.departureDate || '',
-                    departureTime: formData.departureTime || ''
-                };
-                orders.push(newOrder);
-                Storage.set('fbo_orders', orders);
-
-                // Marketing list
-                const marketingList = Storage.get('marketing_list') || [];
                 if (formData.marketingConsent && formData.email) {
-                    marketingList.push({
-                        email: formData.email,
-                        name: formData.pilotName,
-                        tailNumber: formData.tailNumber,
-                        company: formData.company,
-                        signupDate: new Date().toISOString()
-                    });
-                    Storage.set('marketing_list', marketingList);
+                    appendStoredRecord('marketing_list', buildMarketingLeadPayload(formData));
                 }
 
-                // Sync to Google Forms (bulletproof backup!)
-                try {
-                    const backupData = {
-                        type: 'kiosk-checkin',
-                        timestamp: new Date().toISOString(),
-                        customer: newCustomer,
-                        order: newOrder,
-                        marketingConsent: formData.marketingConsent
-                    };
-                    
-                    const formData2 = new FormData();
-                    formData2.append('entry.766632014', JSON.stringify(backupData));
-                    
-                    await fetch('https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse', {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: formData2
-                    });
-                    
-                    console.log('✅ Data backed up to Google Forms');
-                } catch (error) {
-                    console.error('Google Forms backup error:', error);
-                }
+                await syncAdapters.backupJsonPayload('kiosk-checkin', {
+                    customer: newCustomer,
+                    order: newOrder,
+                    marketingConsent: formData.marketingConsent
+                });
 
                 setStep(5);
                 
