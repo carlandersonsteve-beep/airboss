@@ -55,10 +55,18 @@ In progress.
 - Updated `CURRENT_STATE.md` to reflect the new architecture/recovery status
 - Began safe wiring in `index.html` by adding compatibility helpers for canonical + legacy order statuses
 - Replaced several direct status checks in the UI with compatibility helpers so the app can tolerate both legacy and canonical status values during refactor
+- Added centralized selector-style helpers directly inside `index.html` as an intermediate bridge for:
+  - today orders
+  - active ramp orders
+  - ready-for-front-desk orders
+  - closed orders
+  - week orders
+  - fuel totals
+- Replaced more duplicated inline filtering/counting logic in `index.html` with those centralized helper functions
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
-- AirBoss is now a git repo with an initial baseline commit
+- AirBoss is now a git repo with checkpoint commits
 - AirBoss is still running as single-file apps (`index.html` and `kiosk.html`)
 - New scaffold files exist, but are only partially wired into the app
 - Canonical order statuses for the refactor are now defined as:
@@ -67,13 +75,14 @@ In progress.
   - `ready_for_front_desk`
   - `closed`
 - Legacy statuses are now partially normalized in `index.html` through compatibility helpers
+- Selector logic is beginning to move out of repeated inline expressions
 - Most storage, sync, and workflow behavior is still embedded in the old app flow and needs to be migrated incrementally
 
 ## Next Recommended Steps
-1. Continue replacing direct filtering logic in `index.html` with `orderSelectors`
-2. Start routing order transitions through `orderService` instead of direct status mutation
-3. Start routing customer/ticket/message writes through service/repository layers
-4. Move Google sync and backup logic behind the new sync layer wrappers
+1. Start routing order transitions through service-style functions instead of direct inline mutation
+2. Start routing customer/ticket/message writes through service/repository layers
+3. Move Google sync and backup logic behind the new sync layer wrappers
+4. Continue reducing direct localStorage access in `index.html`
 5. Once behavior is routed through the new spine, split more UI components out of the single-file HTML
 6. Make a checkpoint commit after each meaningful wiring milestone
 
@@ -92,6 +101,7 @@ In progress.
 - Add explicit versioning/recovery planning before deeper wiring work
 - Put the project under git before making larger behavioral changes
 - Use a compatibility pass to bridge legacy and canonical status models during transition
+- Use in-file selector helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderSelectors.js`
 
 ## If Starting Fresh Next Session
 Read in this order:

@@ -17,13 +17,18 @@
 
 ## Refactor Progress
 - Project is now under git in `~/Work/Airboss`
-- Baseline commit created before deeper wiring work
+- Baseline and post-baseline checkpoint commits exist
 - Domain map and refactor structure docs are in place
 - Core constants/workflow/storage layers exist under `src/`
 - Repository and first-pass service layers exist under `src/`
-- `index.html` has started a compatibility pass so status logic can understand both:
-  - legacy statuses (`pending`, `in-progress`, `ready`, `finalized`)
-  - canonical refactor statuses (`pending`, `in_progress`, `ready_for_front_desk`, `closed`)
+- `index.html` now has a compatibility bridge for legacy + canonical order statuses
+- `index.html` now also has centralized selector-style helpers for:
+  - today orders
+  - active ramp orders
+  - ready-for-front-desk orders
+  - closed orders
+  - week orders
+  - fuel totals
 
 ## Likely Weak Points
 - single-file HTML structure still drives the live app
@@ -33,7 +38,7 @@
 - new architecture exists, but most behavior is not yet routed through it
 
 ## Immediate Next Focus
-- continue wiring `index.html` to use the new spine
-- replace direct mutation/filtering logic with selectors/services incrementally
+- start routing order transitions through service-style functions instead of direct inline mutation
+- start routing customer/ticket/message writes through service/repository layers
 - move sync behavior behind the new sync layer
 - preserve current workflow while reducing architectural risk

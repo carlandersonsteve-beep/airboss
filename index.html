@@ -171,6 +171,19 @@
         const isReadyStatus = (status) => normalizeOrderStatus(status) === 'ready_for_front_desk';
         const isClosedStatus = (status) => normalizeOrderStatus(status) === 'closed';
         const isActiveRampStatus = (status) => isPendingStatus(status) || isInProgressStatus(status);
+        const isSameDay = (dateA, dateB) => new Date(dateA).toDateString() === new Date(dateB).toDateString();
+        const getTodayOrders = (orders, now = new Date()) => (orders || []).filter(o => o.createdAt && isSameDay(o.createdAt, now));
+        const getActiveRampOrders = (orders, now = new Date()) => getTodayOrders(orders, now).filter(o => isActiveRampStatus(o.status));
+        const getReadyForFrontDeskOrders = (orders) => (orders || []).filter(o => isReadyStatus(o.status));
+        const getClosedOrders = (orders) => (orders || []).filter(o => isClosedStatus(o.status));
+        const getWeekOrders = (orders, now = new Date()) => {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return (orders || []).filter(o => new Date(o.createdAt) >= weekAgo);
+        };
+        const getFuelTotal = (orders, fuelType) => (orders || []).reduce((sum, o) => {
+            const qty = Number(o.fuelQuantity || o.fuelActualGallons || 0);
+            return (o.fuelType || '').toUpperCase() === fuelType ? sum + qty : sum;
+        }, 0);
 
         function FBOSystem() {
             const [view, setView] = useState('ramp'); // 'ramp', 'office', 'customers', 'chat'
@@ -453,9 +466,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             }`}
                                         >
                                             RAMP
-                                            {orders.filter(o => isActiveRampStatus(o.status) && new Date(o.createdAt).toDateString() === new Date().toDateString()).length > 0 && (
+                                            {getActiveRampOrders(orders).length > 0 && (
                                                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                                    {orders.filter(o => isActiveRampStatus(o.status) && new Date(o.createdAt).toDateString() === new Date().toDateString()).length}
+                                                    {getActiveRampOrders(orders).length}
                                                 </span>
                                             )}
                                         </button>
@@ -468,9 +481,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             }`}
                                         >
                                             FRONT DESK
-                                            {orders.filter(o => isReadyStatus(o.status)).length > 0 && (
+                                            {getReadyForFrontDeskOrders(orders).length > 0 && (
                                                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                                    {orders.filter(o => isReadyStatus(o.status)).length}
+                                                    {getReadyForFrontDeskOrders(orders).length}
                                                 </span>
                                             )}
                                         </button>
@@ -615,14 +628,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         }
 
         function RampView({ customers, orders, tickets, onNewOrder, onNewCustomer, onQuickFuel, updateOrderStatus, addTicket, messages, addMessage }) {
-            const todayOrders = orders.filter(o => {
-                const orderDate = new Date(o.createdAt);
-                const today = new Date();
-                return orderDate.toDateString() === today.toDateString();
-            });
+            const todayOrders = getTodayOrders(orders);
 
-            // Ramp only sees PENDING and IN-PROGRESS (not ready or completed)
-            const activeOrders = todayOrders.filter(o => isActiveRampStatus(o.status));
+            // Ramp only sees pending and in-progress work for today.
+            const activeOrders = getActiveRampOrders(orders);
 
             return (
                 <div>
@@ -673,7 +682,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         <div className="stat-card p-6">
                             <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Completed Today</div>
                             <div className="text-3xl font-bold text-gray-700 mt-2">
-                                {todayOrders.filter(o => isClosedStatus(o.status)).length}
+                                {getClosedOrders(todayOrders).length}
                             </div>
                         </div>
                     </div>
@@ -1327,7 +1336,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             const [filter, setFilter] = useState('today'); // 'today', 'week', 'all', 'archive'
             
             const pendingTickets = tickets.filter(t => t.status === 'pending');
-            const readyToBillOrders = orders.filter(o => isReadyStatus(o.status));
+            const readyToBillOrders = getReadyForFrontDeskOrders(orders);
 
             // === PRE-DEPARTURE EMAIL FEATURE ===
             // TODO: FIREBASE UPGRADE NEEDED — currently manual trigger only.
@@ -1382,35 +1391,15 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             };
             // === END PRE-DEPARTURE EMAIL FEATURE ===
             
-            const filteredOrders = orders.filter(o => {
-                const orderDate = new Date(o.createdAt);
-                const now = new Date();
-                
-                if (filter === 'archive') {
-                    // Archive shows only closed/finalized orders
-                    return isClosedStatus(o.status);
-                } else if (filter === 'today') {
-                    return orderDate.toDateString() === now.toDateString();
-                } else if (filter === 'week') {
-                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    return orderDate >= weekAgo;
-                }
-                return true;
-            });
+            const filteredOrders = (() => {
+                if (filter === 'archive') return getClosedOrders(orders);
+                if (filter === 'today') return getTodayOrders(orders);
+                if (filter === 'week') return getWeekOrders(orders);
+                return orders;
+            })();
 
-            const totalJetA = filteredOrders.reduce((sum, o) => {
-                if ((o.fuelType || '').toUpperCase() === 'JET-A' && o.fuelQuantity) {
-                    return sum + o.fuelQuantity;
-                }
-                return sum;
-            }, 0);
-
-            const total100LL = filteredOrders.reduce((sum, o) => {
-                if (o.fuelType === '100LL' && o.fuelQuantity) {
-                    return sum + o.fuelQuantity;
-                }
-                return sum;
-            }, 0);
+            const totalJetA = getFuelTotal(filteredOrders, 'JET-A');
+            const total100LL = getFuelTotal(filteredOrders, '100LL');
 
             return (
                 <div>
