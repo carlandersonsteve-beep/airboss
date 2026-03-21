@@ -4,13 +4,24 @@ import { bootstrapPayload } from './lib/bootstrap.js';
 import { createRouter } from './lib/router.js';
 import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
+import {
+  createAlert,
+  createCustomer,
+  createOrder,
+  createOrderMessage,
+  listAlerts,
+  listOrderMessages,
+  listOrders,
+  upsertThreadRead,
+} from './db/repositories.js';
+import { AppError, requireField } from './lib/errors.js';
 
 const router = createRouter();
 
 router.get('/health', async () => ({
   ok: true,
   service: 'airboss-backend',
-  mode: 'scaffold',
+  mode: env.databaseUrl ? 'postgres-configured' : 'postgres-missing-config',
   databaseUrlConfigured: Boolean(env.databaseUrl),
 }));
 
@@ -20,48 +31,60 @@ router.get('/schema.sql', async () => ({ sql: schemaSql }));
 
 router.get('/orders', async () => ({
   ok: true,
-  items: [],
-  note: 'Orders API scaffolded. Back this with Postgres next.',
+  items: await listOrders(),
 }));
 
 router.get('/alerts', async () => ({
   ok: true,
-  items: [],
-  note: 'Alerts API scaffolded. Back this with Postgres next.',
+  items: await listAlerts(),
 }));
 
 router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params }) => ({
   ok: true,
   orderId: params[0],
-  items: [],
-  note: 'Order messages API scaffolded. Back this with Postgres next.',
+  items: await listOrderMessages(params[0]),
+}));
+
+router.post('/customers', async ({ body }) => ({
+  ok: true,
+  item: await createCustomer(body || {}),
 }));
 
 router.post('/orders', async ({ body }) => ({
   ok: true,
-  accepted: body,
-  note: 'POST /orders scaffold only. Persist to Postgres next.',
+  item: await createOrder(body || {}),
 }));
 
 router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body }) => ({
   ok: true,
-  orderId: params[0],
-  accepted: body,
-  note: 'POST /orders/:id/messages scaffold only. Persist to Postgres next.',
+  item: await createOrderMessage({
+    ...(body || {}),
+    id: body?.id || crypto.randomUUID(),
+    orderId: params[0],
+  }),
 }));
 
 router.post('/alerts', async ({ body }) => ({
   ok: true,
-  accepted: body,
-  note: 'POST /alerts scaffold only. Persist to Postgres next.',
+  item: await createAlert({
+    ...(body || {}),
+    id: body?.id || crypto.randomUUID(),
+  }),
 }));
 
-router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body }) => ({
-  ok: true,
-  orderId: params[0],
-  accepted: body,
-  note: 'POST /orders/:id/read scaffold only. Persist to Postgres next.',
-}));
+router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body }) => {
+  requireField(body?.role, 'role');
+  const item = await upsertThreadRead({
+    orderId: params[0],
+    role: body.role,
+    lastReadAt: body.lastReadAt ? new Date(body.lastReadAt).toISOString() : null,
+  });
+
+  return {
+    ok: true,
+    item,
+  };
+});
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -75,6 +98,15 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, result.statusCode || 200, result.body);
   } catch (error) {
+    if (error instanceof AppError) {
+      sendJson(res, error.statusCode || 400, {
+        ok: false,
+        error: error.message,
+        details: error.details || null,
+      });
+      return;
+    }
+
     sendJson(res, 500, {
       ok: false,
       error: 'Internal server error',

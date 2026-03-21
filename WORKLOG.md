@@ -158,6 +158,12 @@ In progress.
   - added initial shared API shape for bootstrap/orders/order-messages/alerts/thread-reads
   - added Postgres schema draft for customers, orders, order_messages, alerts, and thread_reads
   - kept backend intentionally thin and dependency-light for first implementation pass
+- Continued backend work from scaffold to real persistence wiring:
+  - added `pg` dependency
+  - added Postgres connection layer under `server/db/client.js`
+  - added repository-backed reads/writes for customers, orders, messages, alerts, and thread read state
+  - changed `/bootstrap` and data endpoints from stub responses to Postgres-backed behavior
+  - made missing `DATABASE_URL` fail clearly instead of faking persistence
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

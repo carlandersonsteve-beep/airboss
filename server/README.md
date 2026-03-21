@@ -10,7 +10,9 @@ Move AirBoss away from browser-local-only state and toward a shared operations b
 - thread read state
 
 ## Current state
-This scaffold intentionally uses only Node built-ins so it can run immediately without package installs.
+The backend now uses:
+- built-in Node HTTP server
+- `pg` for Postgres connectivity
 
 It provides:
 - `GET /health`
@@ -24,7 +26,9 @@ It provides:
 - `POST /alerts`
 - `POST /orders/:id/read`
 
-Right now these endpoints are **shape-only** and return scaffold responses.
+These endpoints are now wired for real Postgres-backed persistence.
+
+If `DATABASE_URL` is missing, data endpoints will return a clear configuration error instead of silently pretending to persist.
 
 ## Run
 ```bash
@@ -40,8 +44,13 @@ PORT=8788 npm run dev:server
 ```
 
 ## Database
-Planned datastore:
+Datastore:
 - Postgres
+
+Set:
+```bash
+export DATABASE_URL='postgres://USER:PASS@HOST:5432/DBNAME'
+```
 
 The initial schema is in:
 - `server/db/schema.js`
