@@ -110,6 +110,61 @@ export async function createOrder(payload) {
   return mapOrderRow(result.rows[0]);
 }
 
+export async function updateOrder(orderId, patch = {}) {
+  requireField(orderId, 'orderId');
+
+  const fields = [];
+  const values = [];
+  let index = 1;
+
+  const mappings = {
+    status: 'status',
+    statusUpdatedAt: 'status_updated_at',
+    fuelType: 'fuel_type',
+    fuelRequestedGallons: 'fuel_requested_gallons',
+    fuelActualGallons: 'fuel_actual_gallons',
+    fuelQuantity: 'fuel_actual_gallons',
+    hangarOvernight: 'hangar_overnight',
+    notes: 'notes',
+    completionNotes: 'completion_notes',
+    completedAt: 'completed_at',
+    arrivalAt: 'arrival_at',
+    departureDate: 'departure_date',
+    departureTime: 'departure_time',
+    purpose: 'purpose',
+    source: 'source',
+    preDepartureSent: 'pre_departure_sent',
+    preDepartureSentAt: 'pre_departure_sent_at',
+  };
+
+  for (const [key, column] of Object.entries(mappings)) {
+    if (patch[key] !== undefined) {
+      fields.push(`${column} = $${index++}`);
+      values.push(patch[key]);
+    }
+  }
+
+  if (patch.services !== undefined) {
+    fields.push(`services = $${index++}::jsonb`);
+    values.push(JSON.stringify(patch.services || []));
+  }
+
+  if (fields.length === 0) {
+    const existing = await query(`select * from orders where id = $1`, [orderId]);
+    return existing.rows[0] ? mapOrderRow(existing.rows[0]) : null;
+  }
+
+  values.push(orderId);
+  const result = await query(`
+    update orders
+    set ${fields.join(', ')}
+    where id = $${index}
+    returning *
+  `, values);
+
+  return result.rows[0] ? mapOrderRow(result.rows[0]) : null;
+}
+
 export async function listAlerts() {
   const result = await query(`
     select *
@@ -144,6 +199,24 @@ export async function createAlert(payload) {
   ]);
 
   return mapAlertRow(result.rows[0]);
+}
+
+export async function resolveAlert(alertId) {
+  requireField(alertId, 'alertId');
+  const result = await query(`
+    update alerts
+    set status = 'resolved',
+        resolved_at = now()
+    where id = $1
+    returning *
+  `, [alertId]);
+  return result.rows[0] ? mapAlertRow(result.rows[0]) : null;
+}
+
+export async function deleteAlert(alertId) {
+  requireField(alertId, 'alertId');
+  await query(`delete from alerts where id = $1`, [alertId]);
+  return true;
 }
 
 export async function listOrderMessages(orderId = null) {

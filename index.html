@@ -231,6 +231,25 @@
                 });
             },
 
+            resolveAlert(alertId) {
+                return this.request(`/alerts/${alertId}/resolve`, {
+                    method: 'POST',
+                });
+            },
+
+            deleteAlert(alertId) {
+                return this.request(`/alerts/${alertId}`, {
+                    method: 'DELETE',
+                });
+            },
+
+            updateOrder(orderId, patch) {
+                return this.request(`/orders/${orderId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(patch),
+                });
+            },
+
             markOrderThreadRead(orderId, role, lastReadAt = Date.now()) {
                 return this.request(`/orders/${orderId}/read`, {
                     method: 'POST',
@@ -448,13 +467,24 @@
                 syncAdapters.backupJsonPayload('order-update', { order: updatedOrder });
             };
 
-            const transitionOrder = (orderId, transitionFn) => {
+            const transitionOrder = async (orderId, transitionFn) => {
+                let updatedOrder = null;
                 setOrders(currentOrders => currentOrders.map(o => {
                     if (o.id !== orderId) return o;
-                    const updated = transitionFn(o);
-                    backupOrderUpdate(updated);
-                    return updated;
+                    updatedOrder = transitionFn(o);
+                    backupOrderUpdate(updatedOrder);
+                    return updatedOrder;
                 }));
+
+                if (updatedOrder) {
+                    try {
+                        const response = await api.updateOrder(orderId, updatedOrder);
+                        setOrders(prev => prev.map(o => o.id === orderId ? response.item : o));
+                        setBackendMode('postgres');
+                    } catch (error) {
+                        console.log('Order backend sync failed, kept locally', error.message);
+                    }
+                }
             };
 
             const startOrderService = (orderId) => {
@@ -508,12 +538,25 @@
                 return newTicket;
             };
 
-            const resolveTicket = (ticketId) => {
+            const resolveTicket = async (ticketId) => {
                 setTickets(prev => prev.map(t => t.id === ticketId ? runtime.ticketService.resolveTicket(t) : t));
+                try {
+                    const response = await api.resolveAlert(ticketId);
+                    setTickets(prev => prev.map(t => t.id === ticketId ? response.item : t));
+                    setBackendMode('postgres');
+                } catch (error) {
+                    console.log('Alert resolve sync failed, kept locally', error.message);
+                }
             };
 
-            const deleteTicket = (ticketId) => {
+            const deleteTicket = async (ticketId) => {
                 setTickets(prev => prev.filter(t => t.id !== ticketId));
+                try {
+                    await api.deleteAlert(ticketId);
+                    setBackendMode('postgres');
+                } catch (error) {
+                    console.log('Alert delete sync failed after local removal', error.message);
+                }
             };
 
             const exportData = () => {

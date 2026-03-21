@@ -9,9 +9,12 @@ import {
   createCustomer,
   createOrder,
   createOrderMessage,
+  deleteAlert,
   listAlerts,
   listOrderMessages,
   listOrders,
+  resolveAlert,
+  updateOrder,
   upsertThreadRead,
 } from './db/repositories.js';
 import { AppError, requireField } from './lib/errors.js';
@@ -70,6 +73,21 @@ router.post('/alerts', async ({ body }) => ({
     ...(body || {}),
     id: body?.id || crypto.randomUUID(),
   }),
+}));
+
+router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params }) => ({
+  ok: true,
+  item: await resolveAlert(params[0]),
+}));
+
+router.delete(/^\/alerts\/([^/]+)$/, async ({ params }) => ({
+  ok: true,
+  removed: await deleteAlert(params[0]),
+}));
+
+router.patch(/^\/orders\/([^/]+)$/, async ({ params, body }) => ({
+  ok: true,
+  item: await updateOrder(params[0], body || {}),
 }));
 
 router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body }) => {
