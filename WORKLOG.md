@@ -152,6 +152,12 @@ In progress.
   - improved front desk visibility into order-level message previews/threads
   - added local-first unread tracking for order threads by role (`RAMP` / `OFFICE`)
   - added quick ramp alert actions for common exceptions (customer waiting, crew car, need desk help)
+- Began shared backend scaffold work:
+  - added `package.json` for project-level backend scripts
+  - added built-in Node HTTP backend scaffold under `server/`
+  - added initial shared API shape for bootstrap/orders/order-messages/alerts/thread-reads
+  - added Postgres schema draft for customers, orders, order_messages, alerts, and thread_reads
+  - kept backend intentionally thin and dependency-light for first implementation pass
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
