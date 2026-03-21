@@ -146,6 +146,7 @@
     <script type="text/babel">
         const { useState } = React;
         const runtime = window.AirBossRuntime;
+        const API_BASE_URL = `${window.location.protocol === 'file:' ? 'http://localhost:8787' : window.location.origin}`;
 
         const GOOGLE_FORMS_BACKUP_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse';
 
@@ -181,6 +182,38 @@
                     console.log('Google Forms backup attempted (background)');
                 }
             }
+        };
+
+        const api = {
+            async request(path, options = {}) {
+                const response = await fetch(`${API_BASE_URL}${path}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(options.headers || {}),
+                    },
+                    ...options,
+                });
+
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.error || `Request failed: ${response.status}`);
+                }
+                return payload;
+            },
+
+            createCustomer(customer) {
+                return this.request('/customers', {
+                    method: 'POST',
+                    body: JSON.stringify(customer),
+                });
+            },
+
+            createOrder(order) {
+                return this.request('/orders', {
+                    method: 'POST',
+                    body: JSON.stringify(order),
+                });
+            },
         };
 
         const appendStoredRecord = (key, record) => {
@@ -228,6 +261,8 @@
 
         function CheckInKiosk() {
             const [step, setStep] = useState(0); // 0=welcome, 1=aircraft, 2=pilot, 3=services, 4=confirm, 5=success
+            const [backendStatus, setBackendStatus] = useState('idle');
+            const [submitError, setSubmitError] = useState('');
             const [formData, setFormData] = useState({
                 tailNumber: '',
                 aircraftType: '',
@@ -286,17 +321,41 @@
             };
 
             const handleSubmit = async () => {
-                const newCustomer = appendStoredRecord('fbo_customers', buildKioskCustomerPayload(formData));
-                const newOrder = appendStoredRecord('fbo_orders', buildKioskOrderPayload(formData, newCustomer));
+                setSubmitError('');
+                setBackendStatus('saving');
+
+                const localCustomer = appendStoredRecord('fbo_customers', buildKioskCustomerPayload(formData));
+                const localOrder = appendStoredRecord('fbo_orders', buildKioskOrderPayload(formData, localCustomer));
 
                 if (formData.marketingConsent && formData.email) {
                     appendStoredRecord('marketing_list', buildMarketingLeadPayload(formData));
                 }
 
+                let savedCustomer = localCustomer;
+                let savedOrder = localOrder;
+
+                try {
+                    const customerResponse = await api.createCustomer(localCustomer);
+                    savedCustomer = customerResponse.item || localCustomer;
+
+                    const backendOrderPayload = {
+                        ...localOrder,
+                        customerId: savedCustomer.id,
+                    };
+                    const orderResponse = await api.createOrder(backendOrderPayload);
+                    savedOrder = orderResponse.item || backendOrderPayload;
+                    setBackendStatus('postgres');
+                } catch (error) {
+                    console.log('Kiosk backend sync failed, kept locally', error.message);
+                    setBackendStatus('local-fallback');
+                    setSubmitError('Check-in saved locally. Shared sync is temporarily unavailable.');
+                }
+
                 await syncAdapters.backupJsonPayload('kiosk-checkin', {
-                    customer: newCustomer,
-                    order: newOrder,
-                    marketingConsent: formData.marketingConsent
+                    customer: savedCustomer,
+                    order: savedOrder,
+                    marketingConsent: formData.marketingConsent,
+                    backendStatus
                 });
 
                 setStep(5);
@@ -315,9 +374,12 @@
                         fuelQuantity: '',
                         hangarOvernight: '',
                         services: [],
-                        marketingConsent: true
+                        marketingConsent: true,
+                        departureDate: '',
+                        departureTime: ''
                     });
                     setStep(0);
+                    setSubmitError('');
                 }, 5000);
             };
 
@@ -577,6 +639,11 @@
                         <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem', color: '#1f2937'}}>
                             ✅ Confirm Your Request
                         </h2>
+                        {submitError && (
+                            <div style={{marginBottom: '1rem', padding: '0.9rem 1rem', borderRadius: '0.75rem', background: '#fef3c7', color: '#92400e', fontWeight: 600}}>
+                                {submitError}
+                            </div>
+                        )}
                         
                         <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '1rem', marginBottom: '1.5rem'}}>
                             <h3 style={{fontWeight: 'bold', marginBottom: '0.5rem'}}>Aircraft</h3>
@@ -660,6 +727,9 @@
                         <h2 style={{fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '1rem', color: '#059669'}}>
                             Check-In Complete!
                         </h2>
+                        <div style={{marginBottom: '1rem', display: 'inline-block', padding: '0.6rem 1rem', borderRadius: '999px', background: backendStatus === 'postgres' ? '#dcfce7' : '#fef3c7', color: backendStatus === 'postgres' ? '#166534' : '#92400e', fontWeight: 700}}>
+                            {backendStatus === 'postgres' ? 'Shared ops system updated' : 'Saved locally — shared sync pending'}
+                        </div>
                         <p style={{fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem'}}>
                             Welcome to Mustang Aviation
                         </p>

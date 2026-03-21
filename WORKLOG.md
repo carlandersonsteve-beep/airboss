@@ -164,6 +164,10 @@ In progress.
   - added repository-backed reads/writes for customers, orders, messages, alerts, and thread read state
   - changed `/bootstrap` and data endpoints from stub responses to Postgres-backed behavior
   - made missing `DATABASE_URL` fail clearly instead of faking persistence
+- Continued frontend/shared-state cutover:
+  - wired main ops app bootstrap + polling to the shared backend
+  - wired order threads, alerts, thread reads, and order transitions to backend persistence paths
+  - wired kiosk check-in to create customers/orders through backend with local fallback retained
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
