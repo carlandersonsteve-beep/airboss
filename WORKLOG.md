@@ -150,6 +150,8 @@ In progress.
   - demoted general chat to a secondary ops channel instead of the main communication path
   - removed manual sender selection from general chat UI
   - improved front desk visibility into order-level message previews/threads
+  - added local-first unread tracking for order threads by role (`RAMP` / `OFFICE`)
+  - added quick ramp alert actions for common exceptions (customer waiting, crew car, need desk help)
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

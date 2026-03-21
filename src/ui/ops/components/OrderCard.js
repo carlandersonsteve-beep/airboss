@@ -7,6 +7,8 @@ window.AirBossComponents.OrderCard = function OrderCard({
   addTicket,
   messages,
   addMessage,
+  getUnreadOrderThreadCount,
+  markOrderThreadRead,
   startOrderService,
   markOrderReadyForFrontDesk,
 }) {
@@ -47,6 +49,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const latestOrderMessage = orderThreadMessages.length > 0
     ? orderThreadMessages.slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).pop()
     : null;
+  const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
 
   const handleSaveAndNotify = (actualFuel, completionNotes) => {
     const updatedOrder = {
@@ -65,6 +68,19 @@ window.AirBossComponents.OrderCard = function OrderCard({
       completionNotes: completionNotes || '',
     });
     setShowCompleteModal(false);
+  };
+
+  const createAlert = (type, message) => {
+    addTicket({
+      type,
+      orderId: order.id,
+      customerId: order.customerId,
+      tailNumber: customer?.tailNumber || order.tailNumber,
+      aircraftType: customer?.aircraftType || order.aircraftType,
+      message,
+      submittedBy: 'Ramp',
+      notes: '',
+    });
   };
 
   return (
@@ -140,7 +156,12 @@ window.AirBossComponents.OrderCard = function OrderCard({
 
       {latestOrderMessage && !isInProgressStatus(order.status) && (
         <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <div className="text-xs uppercase tracking-wide text-gray-500 font-bold mb-1">Latest Order Message</div>
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <div className="text-xs uppercase tracking-wide text-gray-500 font-bold">Latest Order Message</div>
+            {unreadCount > 0 && (
+              <div className="text-xs font-black px-2 py-1 rounded-full bg-red-600 text-white">{unreadCount} new</div>
+            )}
+          </div>
           <div className="text-sm text-gray-800">
             <span className="font-bold mr-2">{latestOrderMessage.sender}:</span>
             {latestOrderMessage.text}
@@ -156,7 +177,32 @@ window.AirBossComponents.OrderCard = function OrderCard({
           senderRole="RAMP"
           title="Ramp ↔ Front Desk Thread"
           emptyLabel="No messages on this aircraft yet. Use this instead of radio chatter when something changes."
+          unreadCount={unreadCount}
+          onOpen={markOrderThreadRead}
         />
+      )}
+
+      {isInProgressStatus(order.status) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => createAlert('customer_waiting', 'Customer waiting at aircraft / needs front desk attention')}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded text-xs font-bold transition"
+          >
+            ⚠️ Customer Waiting
+          </button>
+          <button
+            onClick={() => createAlert('crew_car', 'Crew car requested for this aircraft')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded text-xs font-bold transition"
+          >
+            🚗 Crew Car
+          </button>
+          <button
+            onClick={() => createAlert('desk_help', 'Ramp needs front desk assistance on this aircraft')}
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-bold transition"
+          >
+            📣 Need Desk Help
+          </button>
+        </div>
       )}
 
       <div className="flex gap-2 flex-wrap">

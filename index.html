@@ -226,6 +226,7 @@
             // === MESSAGING FEATURE START ===
             const [messages, setMessages] = useState([]);
             const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
+            const [orderThreadReadState, setOrderThreadReadState] = useState(() => Storage.get('fbo_order_thread_reads') || { RAMP: {}, OFFICE: {} });
             // === MESSAGING FEATURE END ===
 
             // Load data on mount
@@ -260,6 +261,10 @@
                 Storage.set('fbo_messages', messages);
             }, [messages]);
 
+            useEffect(() => {
+                Storage.set('fbo_order_thread_reads', orderThreadReadState);
+            }, [orderThreadReadState]);
+
             const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => (
                 runtime.messageService.createMessagePayload({ text, senderRole: sender, orderId, tailNumber })
             );
@@ -277,6 +282,28 @@
                 const now = Date.now();
                 setLastReadChat(now);
                 Storage.set('fbo_last_read_chat', now);
+            };
+
+            const markOrderThreadRead = (role, orderId) => {
+                if (!role || !orderId) return;
+                const now = Date.now();
+                setOrderThreadReadState(prev => ({
+                    ...prev,
+                    [role]: {
+                        ...(prev[role] || {}),
+                        [orderId]: now,
+                    },
+                }));
+            };
+
+            const getUnreadOrderThreadCount = (role, orderId) => {
+                if (!role || !orderId) return 0;
+                const lastReadAt = (orderThreadReadState[role] && orderThreadReadState[role][orderId]) || 0;
+                return (messages || []).filter(message => (
+                    message.orderId === orderId &&
+                    message.sender !== role &&
+                    new Date(message.createdAt).getTime() > lastReadAt
+                )).length;
             };
             // === MESSAGING FEATURE END ===
 
@@ -571,6 +598,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 addTicket={addTicket}
                                 messages={messages}
                                 addMessage={(text, orderId, tailNumber) => addMessage(text, 'RAMP', orderId, tailNumber)}
+                                getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('RAMP', orderId)}
+                                markOrderThreadRead={(orderId) => markOrderThreadRead('RAMP', orderId)}
                                 startOrderService={startOrderService}
                                 markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
                             />
@@ -587,6 +616,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 generateCompletionEmail={generateCompletionEmail}
                                 messages={messages}
                                 addMessage={(text, orderId, tailNumber) => addMessage(text, 'OFFICE', orderId, tailNumber)}
+                                getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('OFFICE', orderId)}
+                                markOrderThreadRead={(orderId) => markOrderThreadRead('OFFICE', orderId)}
                                 closeOrder={closeOrder}
                             />
                         )}

@@ -11,6 +11,8 @@ window.AirBossComponents.OfficeView = function OfficeView({
   generateCompletionEmail,
   messages,
   addMessage,
+  getUnreadOrderThreadCount,
+  markOrderThreadRead,
   closeOrder,
 }) {
   const { useState } = React;
@@ -34,6 +36,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const [expandedThreadOrderId, setExpandedThreadOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
+  const unreadReadyThreads = readyToBillOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -132,10 +135,14 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="stat-card p-6 border-l-4 border-orange-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Ready to Bill</div>
           <div className="text-3xl font-bold text-orange-600 mt-2">{readyToBillOrders.length}</div>
+        </div>
+        <div className="stat-card p-6 border-l-4 border-red-500">
+          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Ramp Threads</div>
+          <div className="text-3xl font-bold text-red-600 mt-2">{unreadReadyThreads}</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-green-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Jet-A ({filter})</div>
@@ -194,6 +201,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
               .filter(message => message.orderId === order.id)
               .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             const latestOrderMessage = orderMessages[orderMessages.length - 1] || null;
+            const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
             const showThread = expandedThreadOrderId === order.id;
             return (
               <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
@@ -203,13 +211,18 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <div className="text-gray-600">{customer?.aircraftType || order.aircraft || 'Unknown Type'}</div>
                     <div className="text-sm text-gray-500">{customer?.pilotName || customer?.ownerName || order.customerName}</div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isClosedStatus(order.status) ? 'bg-gray-100 text-gray-800' :
-                    isReadyStatus(order.status) ? 'bg-orange-100 text-orange-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}>
-                    {String(order.status).replace(/[-_]/g, ' ').toUpperCase()}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      isClosedStatus(order.status) ? 'bg-gray-100 text-gray-800' :
+                      isReadyStatus(order.status) ? 'bg-orange-100 text-orange-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {String(order.status).replace(/[-_]/g, ' ').toUpperCase()}
+                    </span>
+                    {unreadCount > 0 && (
+                      <div className="text-xs font-black px-2 py-1 rounded-full bg-red-600 text-white">{unreadCount} new</div>
+                    )}
+                  </div>
                 </div>
 
                 {order.completionNotes && (
@@ -252,6 +265,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                       emptyLabel="No messages on this aircraft yet."
                       accent="blue"
                       compact={true}
+                      unreadCount={unreadCount}
+                      onOpen={markOrderThreadRead}
                     />
                   </div>
                 )}

@@ -11,6 +11,8 @@ window.AirBossComponents.RampView = function RampView({
   addTicket,
   messages,
   addMessage,
+  getUnreadOrderThreadCount,
+  markOrderThreadRead,
   startOrderService,
   markOrderReadyForFrontDesk,
 }) {
@@ -28,6 +30,7 @@ window.AirBossComponents.RampView = function RampView({
 
   const todayOrders = getTodayOrders(orders);
   const activeOrders = getActiveRampOrders(orders);
+  const unreadThreadOrders = activeOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
 
   return (
     <div>
@@ -64,7 +67,7 @@ window.AirBossComponents.RampView = function RampView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="stat-card p-6">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Active Orders Today</div>
           <div className="text-3xl font-bold mustang-red-text mt-2">{activeOrders.length}</div>
@@ -76,6 +79,10 @@ window.AirBossComponents.RampView = function RampView({
         <div className="stat-card p-6">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Completed Today</div>
           <div className="text-3xl font-bold text-gray-700 mt-2">{getClosedOrders(todayOrders).length}</div>
+        </div>
+        <div className="stat-card p-6 border-l-4 border-red-500">
+          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Desk Replies</div>
+          <div className="text-3xl font-bold text-red-600 mt-2">{unreadThreadOrders}</div>
         </div>
       </div>
 
@@ -96,6 +103,8 @@ window.AirBossComponents.RampView = function RampView({
                   addTicket={addTicket}
                   messages={messages}
                   addMessage={addMessage}
+                  getUnreadOrderThreadCount={getUnreadOrderThreadCount}
+                  markOrderThreadRead={markOrderThreadRead}
                   startOrderService={startOrderService}
                   markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
                 />

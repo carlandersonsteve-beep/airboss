@@ -9,6 +9,8 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
   emptyLabel = 'No order messages yet.',
   accent = 'orange',
   compact = false,
+  unreadCount = 0,
+  onOpen,
 }) {
   const { useMemo, useRef, useEffect, useState } = React;
   const [text, setText] = useState('');
@@ -22,7 +24,8 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [threadMessages.length]);
+    onOpen && onOpen(order?.id);
+  }, [threadMessages.length, order?.id]);
 
   const handleSend = () => {
     if (!text.trim() || !order?.id) return;
@@ -44,8 +47,15 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
           <div className={`text-sm font-bold ${titleColor}`}>{title}</div>
           <div className="text-xs text-gray-500">Live order communication between ramp and front desk</div>
         </div>
-        <div className={`text-xs font-bold px-2 py-1 rounded-full ${badgeColor}`}>
-          {threadMessages.length} msg{threadMessages.length === 1 ? '' : 's'}
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <div className="text-xs font-black px-2 py-1 rounded-full bg-red-600 text-white">
+              {unreadCount} new
+            </div>
+          )}
+          <div className={`text-xs font-bold px-2 py-1 rounded-full ${badgeColor}`}>
+            {threadMessages.length} msg{threadMessages.length === 1 ? '' : 's'}
+          </div>
         </div>
       </div>
 
