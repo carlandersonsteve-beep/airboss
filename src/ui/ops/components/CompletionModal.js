@@ -1,9 +1,9 @@
 window.AirBossComponents = window.AirBossComponents || {};
 
-window.AirBossComponents.CompletionModal = function CompletionModal({ order, customer, initialNote, onClose, onConfirm }) {
+window.AirBossComponents.CompletionModal = function CompletionModal({ order, customer, onClose, onConfirm }) {
   const { useState } = React;
   const [actualFuel, setActualFuel] = useState(order.fuelQuantity || '');
-  const [completionNotes, setCompletionNotes] = useState(initialNote || '');
+  const [completionNotes, setCompletionNotes] = useState(order.completionNotes || '');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

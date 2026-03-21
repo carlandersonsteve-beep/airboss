@@ -144,6 +144,12 @@ In progress.
   - this likely caused the blank-screen failure in the ops app while kiosk still rendered
 - Branding change requested by Steve:
   - rename visible product/app branding from `Smart Arrival` to `AirBoss`
+- Began Mustang-first ops messaging cleanup:
+  - replaced fake `OrderMessageThread` note-box semantics with persisted per-order thread UI
+  - kept front-desk handoff notes separate inside completion flow
+  - demoted general chat to a secondary ops channel instead of the main communication path
+  - removed manual sender selection from general chat UI
+  - improved front desk visibility into order-level message previews/threads
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

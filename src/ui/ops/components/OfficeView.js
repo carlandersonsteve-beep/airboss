@@ -17,7 +17,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const deps = window.AirBossComponentBridge.requireDeps(
     'OfficeView',
     window.AirBossDeps || {},
-    ['isClosedStatus', 'isReadyStatus', 'getReadyForFrontDeskOrders', 'getClosedOrders', 'getTodayOrders', 'getWeekOrders', 'getFuelTotal']
+    ['isClosedStatus', 'isReadyStatus', 'getReadyForFrontDeskOrders', 'getClosedOrders', 'getTodayOrders', 'getWeekOrders', 'getFuelTotal', 'OrderMessageThread']
   );
   const {
     isClosedStatus,
@@ -27,9 +27,11 @@ window.AirBossComponents.OfficeView = function OfficeView({
     getTodayOrders,
     getWeekOrders,
     getFuelTotal,
+    OrderMessageThread,
   } = deps;
 
   const [filter, setFilter] = useState('today');
+  const [expandedThreadOrderId, setExpandedThreadOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
 
@@ -90,7 +92,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
     <div>
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">Front Desk</h2>
-        <p className="text-gray-600">Ready-to-bill aircraft and customer billing</p>
+        <p className="text-gray-600">Ready-to-bill aircraft, handoff notes, and order-level communication</p>
       </div>
 
       {preDepartureOrders.length > 0 && (
@@ -144,7 +146,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
           <div className="text-3xl font-bold text-blue-600 mt-2">{total100LL} gal</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-yellow-500">
-          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Pending Tickets</div>
+          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Pending Alerts</div>
           <div className="text-3xl font-bold text-yellow-600 mt-2">{pendingTickets.length}</div>
         </div>
       </div>
@@ -167,7 +169,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
         {pendingTickets.length > 0 && (
           <div className="mb-6 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
-            <h4 className="font-bold text-yellow-800 mb-3">⚠️ Ramp Notifications</h4>
+            <h4 className="font-bold text-yellow-800 mb-3">⚠️ Ramp Alerts</h4>
             <div className="space-y-2">
               {pendingTickets.map(ticket => (
                 <div key={ticket.id} className="bg-white p-3 rounded flex justify-between items-center">
@@ -188,9 +190,14 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         <div className="space-y-3">
           {filteredOrders.map(order => {
             const customer = customers.find(c => c.id === order.customerId);
+            const orderMessages = (messages || [])
+              .filter(message => message.orderId === order.id)
+              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            const latestOrderMessage = orderMessages[orderMessages.length - 1] || null;
+            const showThread = expandedThreadOrderId === order.id;
             return (
               <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-3 gap-3">
                   <div>
                     <div className="font-bold text-lg mustang-red-text">{customer?.tailNumber || order.tailNumber || 'Unknown'}</div>
                     <div className="text-gray-600">{customer?.aircraftType || order.aircraft || 'Unknown Type'}</div>
@@ -206,8 +213,46 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 </div>
 
                 {order.completionNotes && (
-                  <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded mb-3">
-                    <span className="font-medium">Ramp Notes:</span> {order.completionNotes}
+                  <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded mb-3 border border-blue-200">
+                    <span className="font-medium">Handoff Notes:</span> {order.completionNotes}
+                  </div>
+                )}
+
+                {latestOrderMessage && (
+                  <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded mb-3 border border-gray-200">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="font-medium">Latest Order Message:</span>{' '}
+                        <span className="font-bold">{latestOrderMessage.sender}:</span> {latestOrderMessage.text}
+                      </div>
+                      <button
+                        onClick={() => setExpandedThreadOrderId(showThread ? null : order.id)}
+                        className="text-xs bg-gray-800 hover:bg-black text-white px-3 py-1 rounded-full font-bold transition"
+                      >
+                        {showThread ? 'Hide Thread' : `Open Thread (${orderMessages.length})`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!latestOrderMessage && isReadyStatus(order.status) && (
+                  <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded mb-3 border border-dashed border-gray-300">
+                    No order thread messages yet.
+                  </div>
+                )}
+
+                {showThread && (
+                  <div className="mb-3">
+                    <OrderMessageThread
+                      order={order}
+                      messages={messages}
+                      addMessage={addMessage}
+                      senderRole="OFFICE"
+                      title="Order Thread"
+                      emptyLabel="No messages on this aircraft yet."
+                      accent="blue"
+                      compact={true}
+                    />
                   </div>
                 )}
 
@@ -216,6 +261,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <>
                       <button onClick={() => recallOrder(order.id)} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm font-medium">↩ Recall</button>
                       <button onClick={() => closeOrder(order.id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">Finalize</button>
+                      {!showThread && (
+                        <button onClick={() => setExpandedThreadOrderId(order.id)} className="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded text-sm font-medium">💬 Message Ramp</button>
+                      )}
                     </>
                   )}
                   {isClosedStatus(order.status) && (

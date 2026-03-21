@@ -594,8 +594,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         {view === 'chat' && (
                             <ChatView
                                 messages={messages}
-                                orders={orders}
-                                addMessage={addMessage}
+                                addMessage={(text) => addMessage(text, 'OFFICE', null, null)}
+                                senderRole="OFFICE"
                                 onOpen={markChatRead}
                             />
                         )}
@@ -653,9 +653,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         // === MESSAGING FEATURE START ===
         const OrderMessageThread = getExtractedComponent('OrderMessageThread');
 
-        function ChatView({ messages, orders, addMessage, onOpen }) {
+        function ChatView({ messages, addMessage, onOpen, senderRole = 'OFFICE' }) {
             const [text, setText] = useState('');
-            const [sender, setSender] = useState('RAMP');
             const endRef = React.useRef(null);
 
             // General chat = messages with no orderId
@@ -673,15 +672,18 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
             const handleSend = () => {
                 if (!text.trim()) return;
-                addMessage(text.trim(), sender, null, null);
+                addMessage(text.trim(), null, null);
                 setText('');
             };
 
             return (
                 <div className="flex flex-col" style={{height: 'calc(100vh - 160px)'}}>
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">💬 Ramp Chat</h2>
-                        <div className="text-sm text-gray-500">General team communication — no radios needed</div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">💬 General Ops Channel</h2>
+                            <div className="text-sm text-gray-500">Secondary team chatter. Aircraft-specific communication belongs on the order thread.</div>
+                        </div>
+                        <div className="text-xs font-bold px-3 py-1 rounded-full bg-gray-200 text-gray-700">Posting as {senderRole}</div>
                     </div>
                     
                     {/* Messages */}
@@ -713,11 +715,6 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
                     {/* Input */}
                     <div className="flex gap-3 items-center bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-                        <select value={sender} onChange={e=>setSender(e.target.value)} 
-                            className="text-sm font-bold border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-400">
-                            <option value="RAMP">⚙️ Ramp</option>
-                            <option value="OFFICE">💼 Office</option>
-                        </select>
                         <input
                             value={text}
                             onChange={e=>setText(e.target.value)}

@@ -27,7 +27,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const [editedFuel, setEditedFuel] = useState(order.fuelQuantity || 0);
   const [editedServices, setEditedServices] = useState(order.services || []);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [rampNote, setRampNote] = useState('');
   const [showFuelVerify, setShowFuelVerify] = useState(false);
   const [fuelVerified, setFuelVerified] = useState(false);
   const [fuelTypeInput, setFuelTypeInput] = useState('');
@@ -43,6 +42,11 @@ window.AirBossComponents.OrderCard = function OrderCard({
     finalized: 'bg-gray-100 text-gray-800 border-gray-300',
     closed: 'bg-gray-100 text-gray-800 border-gray-300',
   };
+
+  const orderThreadMessages = (messages || []).filter(message => message.orderId === order.id);
+  const latestOrderMessage = orderThreadMessages.length > 0
+    ? orderThreadMessages.slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).pop()
+    : null;
 
   const handleSaveAndNotify = (actualFuel, completionNotes) => {
     const updatedOrder = {
@@ -134,11 +138,28 @@ window.AirBossComponents.OrderCard = function OrderCard({
         </div>
       )}
 
-      {isInProgressStatus(order.status) && (
-        <OrderMessageThread order={order} rampNote={rampNote} setRampNote={setRampNote} />
+      {latestOrderMessage && !isInProgressStatus(order.status) && (
+        <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-wide text-gray-500 font-bold mb-1">Latest Order Message</div>
+          <div className="text-sm text-gray-800">
+            <span className="font-bold mr-2">{latestOrderMessage.sender}:</span>
+            {latestOrderMessage.text}
+          </div>
+        </div>
       )}
 
-      <div className="flex gap-2">
+      {isInProgressStatus(order.status) && (
+        <OrderMessageThread
+          order={order}
+          messages={messages}
+          addMessage={addMessage}
+          senderRole="RAMP"
+          title="Ramp ↔ Front Desk Thread"
+          emptyLabel="No messages on this aircraft yet. Use this instead of radio chatter when something changes."
+        />
+      )}
+
+      <div className="flex gap-2 flex-wrap">
         {isPendingStatus(order.status) && (
           <button
             onClick={() => order.fuelType ? setShowFuelVerify(true) : startOrderService(order.id)}
@@ -242,7 +263,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
         <CompletionModal
           order={order}
           customer={customer}
-          initialNote={rampNote}
           onClose={() => setShowCompleteModal(false)}
           onConfirm={handleSaveAndNotify}
         />
