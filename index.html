@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AirBoss">
+    <meta name="theme-color" content="#8b1e2d">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
     <title>AirBoss - Mustang Aviation</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -177,10 +181,22 @@
             },
             set: (key, value) => {
                 localStorage.setItem(key, JSON.stringify(value));
+            },
+            remove: (key) => {
+                localStorage.removeItem(key);
             }
         };
 
         const API_BASE_URL = `${window.location.protocol === 'file:' ? 'http://localhost:8787' : window.location.origin}`;
+        const SESSION_KEY = 'airboss_session';
+
+        if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((error) => {
+                    console.log('Service worker registration failed', error.message);
+                });
+            });
+        }
 
         const api = {
             async request(path, options = {}) {
@@ -256,6 +272,13 @@
                     body: JSON.stringify({ role, lastReadAt }),
                 });
             },
+
+            login(username, password) {
+                return this.request('/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password }),
+                });
+            },
         };
 
         const runtime = window.AirBossRuntime;
@@ -292,6 +315,9 @@
         });
 
         function FBOSystem() {
+            const [session, setSession] = useState(() => Storage.get(SESSION_KEY));
+            const [authError, setAuthError] = useState('');
+            const [loginForm, setLoginForm] = useState({ username: '', password: '' });
             const [view, setView] = useState('ramp'); // 'ramp', 'office', 'customers', 'chat'
             const [customers, setCustomers] = useState([]);
             const [orders, setOrders] = useState([]);
@@ -306,6 +332,7 @@
             const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
             const [orderThreadReadState, setOrderThreadReadState] = useState(() => Storage.get('fbo_order_thread_reads') || { RAMP: {}, OFFICE: {} });
             const [backendMode, setBackendMode] = useState('unknown');
+            const currentRole = session?.role || 'OFFICE';
             // === MESSAGING FEATURE END ===
 
             // Load data on mount
@@ -404,6 +431,25 @@
                 Storage.set('fbo_last_read_chat', now);
             };
 
+            const handleLogin = async () => {
+                setAuthError('');
+                try {
+                    const response = await api.login(loginForm.username.trim(), loginForm.password);
+                    setSession(response.user);
+                    Storage.set(SESSION_KEY, response.user);
+                    if (response.user.role === 'RAMP') setView('ramp');
+                    if (response.user.role === 'OFFICE') setView('office');
+                    if (response.user.role === 'KIOSK') setView('ramp');
+                } catch (error) {
+                    setAuthError(error.message || 'Login failed');
+                }
+            };
+
+            const handleLogout = () => {
+                setSession(null);
+                Storage.remove(SESSION_KEY);
+            };
+
             const markOrderThreadRead = async (role, orderId) => {
                 if (!role || !orderId) return;
                 const now = Date.now();
@@ -432,6 +478,14 @@
                 )).length;
             };
             // === MESSAGING FEATURE END ===
+
+            const roleAllows = (role, targetView) => {
+                if (role === 'ADMIN') return true;
+                if (role === 'RAMP') return ['ramp', 'chat'].includes(targetView);
+                if (role === 'OFFICE') return ['office', 'chat', 'calendar'].includes(targetView);
+                if (role === 'KIOSK') return false;
+                return false;
+            };
 
             const createCustomerRecord = (customer) => runtime.customerService.createCustomerPayload(customer);
 
@@ -654,6 +708,55 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 window.location.href = mailtoLink;
             };
 
+            if (!session) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+                        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+                            <div className="text-center mb-6">
+                                <div className="text-4xl font-black mustang-red-text mb-2">AirBoss</div>
+                                <div className="text-gray-600">Mustang Aviation operations access</div>
+                            </div>
+                            {authError && (
+                                <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+                                    {authError}
+                                </div>
+                            )}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                                    <input
+                                        value={loginForm.username}
+                                        onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                                        placeholder="frontdesk-1"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                    <input
+                                        type="password"
+                                        value={loginForm.password}
+                                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                                        placeholder="Enter password"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleLogin}
+                                    className="w-full mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-bold"
+                                >
+                                    Sign In
+                                </button>
+                                <div className="text-xs text-gray-500 text-center">
+                                    Roles supported: Ramp, Office, Admin, Kiosk
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="min-h-screen">
                     {/* Header */}
@@ -673,12 +776,13 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 <div className="flex items-center gap-4">
                                     <div className="flex gap-2 p-1 rounded-lg" style={{background: 'rgba(0,0,0,0.3)'}}>
                                         <button
-                                            onClick={() => setView('ramp')}
+                                            onClick={() => roleAllows(currentRole, 'ramp') && setView('ramp')}
+                                            disabled={!roleAllows(currentRole, 'ramp')}
                                             className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
                                                 view === 'ramp' 
                                                 ? 'mustang-red text-white shadow-lg' 
                                                 : 'bg-transparent text-white hover:bg-white/10'
-                                            }`}
+                                            } ${!roleAllows(currentRole, 'ramp') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             RAMP
                                             {getActiveRampOrders(orders).length > 0 && (
@@ -688,12 +792,13 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             )}
                                         </button>
                                         <button
-                                            onClick={() => setView('office')}
+                                            onClick={() => roleAllows(currentRole, 'office') && setView('office')}
+                                            disabled={!roleAllows(currentRole, 'office')}
                                             className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
                                                 view === 'office' 
                                                 ? 'mustang-red text-white shadow-lg' 
                                                 : 'bg-transparent text-white hover:bg-white/10'
-                                            }`}
+                                            } ${!roleAllows(currentRole, 'office') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             FRONT DESK
                                             {getReadyForFrontDeskOrders(orders).length > 0 && (
@@ -704,12 +809,13 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         </button>
                                         {/* === MESSAGING FEATURE START === */}
                                         <button
-                                            onClick={() => { setView('chat'); markChatRead(); }}
+                                            onClick={() => { if (roleAllows(currentRole, 'chat')) { setView('chat'); markChatRead(); } }}
+                                            disabled={!roleAllows(currentRole, 'chat')}
                                             className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
                                                 view === 'chat' 
                                                 ? 'mustang-red text-white shadow-lg' 
                                                 : 'bg-transparent text-white hover:bg-white/10'
-                                            }`}
+                                            } ${!roleAllows(currentRole, 'chat') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             💬 CHAT
                                             {messages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length > 0 && view !== 'chat' && (
@@ -721,19 +827,23 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         {/* === MESSAGING FEATURE END === */}
                                         {/* === CALENDAR FEATURE START === */}
                                         <button
-                                            onClick={() => setView('calendar')}
+                                            onClick={() => roleAllows(currentRole, 'calendar') && setView('calendar')}
+                                            disabled={!roleAllows(currentRole, 'calendar')}
                                             className={`px-6 py-3 rounded-lg font-bold text-lg transition relative ${
                                                 view === 'calendar' 
                                                 ? 'mustang-red text-white shadow-lg' 
                                                 : 'bg-transparent text-white hover:bg-white/10'
-                                            }`}
+                                            } ${!roleAllows(currentRole, 'calendar') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             📅 CALENDAR
                                         </button>
                                         {/* === CALENDAR FEATURE END === */}
                                     </div>
                                     
-                                    <div className="hidden md:flex gap-2">
+                                    <div className="hidden md:flex gap-2 items-center">
+                                        <div className="text-xs text-white/80 font-medium px-3 py-2 rounded-lg bg-black/20">
+                                            {session.displayName || session.username} · {currentRole}
+                                        </div>
                                         <button
                                             onClick={exportData}
                                             className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
@@ -747,6 +857,13 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             title="Import data from backup file"
                                         >
                                             📤
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+                                            title="Sign out"
+                                        >
+                                            ↩ Logout
                                         </button>
                                     </div>
                                 </div>

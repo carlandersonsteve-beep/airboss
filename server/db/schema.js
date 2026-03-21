@@ -69,4 +69,14 @@ create table if not exists thread_reads (
   last_read_at timestamptz not null default now(),
   unique(order_id, role)
 );
+
+create table if not exists app_users (
+  id text primary key,
+  username text not null unique,
+  password text not null,
+  role text not null,
+  display_name text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
 `;

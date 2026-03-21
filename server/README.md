@@ -60,10 +60,21 @@ Print it with:
 npm run db:schema
 ```
 
+## Seed users for Mustang v1
+After applying the schema, run the SQL in:
+- `server/db/seed_users.sql`
+
+Default logins created by that seed:
+- `admin` / `mustang-admin`
+- `frontdesk` / `mustang-office`
+- `ramp` / `mustang-ramp`
+- `kiosk` / `mustang-kiosk`
+
+These are intentionally simple pilot credentials and should be changed before broader rollout.
+
 ## Recommended next step
-Replace scaffold route bodies with real Postgres-backed repositories for:
-1. bootstrap
-2. orders
-3. order messages
-4. alerts
-5. thread reads
+Use the backend + Supabase path as the system of record, then continue tightening:
+1. seed users
+2. verify login + role gating
+3. deploy static app + backend over HTTPS
+4. continue replacing remaining local-only edges

@@ -5,6 +5,7 @@ import { createRouter } from './lib/router.js';
 import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
 import {
+  authenticateUser,
   createAlert,
   createCustomer,
   createOrder,
@@ -47,6 +48,22 @@ router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params }) => ({
   orderId: params[0],
   items: await listOrderMessages(params[0]),
 }));
+
+router.post('/login', async ({ body }) => {
+  const user = await authenticateUser({
+    username: body?.username,
+    password: body?.password,
+  });
+
+  if (!user) {
+    throw new AppError('Invalid username or password', 401);
+  }
+
+  return {
+    ok: true,
+    user,
+  };
+});
 
 router.post('/customers', async ({ body }) => ({
   ok: true,

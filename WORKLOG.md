@@ -168,6 +168,12 @@ In progress.
   - wired main ops app bootstrap + polling to the shared backend
   - wired order threads, alerts, thread reads, and order transitions to backend persistence paths
   - wired kiosk check-in to create customers/orders through backend with local fallback retained
+- Began deployment/installability + access-control layer:
+  - added PWA manifest, icons, and service worker shell caching
+  - added install metadata to ops and kiosk pages
+  - added simple backend login endpoint against `app_users`
+  - added basic session-based role gating in the ops app (Ramp / Office / Admin)
+  - added seed user SQL for Mustang v1 pilot credentials
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

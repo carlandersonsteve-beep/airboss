@@ -362,6 +362,29 @@ function mapMessageRow(row) {
   };
 }
 
+export async function authenticateUser({ username, password }) {
+  requireField(username, 'username');
+  requireField(password, 'password');
+
+  const result = await query(`
+    select id, username, role, display_name, active
+    from app_users
+    where username = $1 and password = $2 and active = true
+    limit 1
+  `, [username, password]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    displayName: row.display_name,
+    active: row.active,
+  };
+}
+
 function mapAlertRow(row) {
   return {
     id: row.id,
