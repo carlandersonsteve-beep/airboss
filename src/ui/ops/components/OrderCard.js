@@ -26,7 +26,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
     CompletionModal,
   } = deps;
 
-  const [editedFuel, setEditedFuel] = useState(order.fuelQuantity || 0);
   const [editedServices, setEditedServices] = useState(order.services || []);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showFuelVerify, setShowFuelVerify] = useState(false);
