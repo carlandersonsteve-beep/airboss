@@ -208,9 +208,12 @@
 
         const api = {
             async request(path, options = {}) {
+                const session = Storage.get(SESSION_KEY);
+                const token = session?.token;
                 const response = await fetch(`${API_BASE_URL}${path}`, {
                     headers: {
                         'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                         ...(options.headers || {}),
                     },
                     ...options,

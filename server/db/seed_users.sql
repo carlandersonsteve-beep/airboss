@@ -25,6 +25,7 @@ values
   ('usr-ramp-7', 'mark', 'airboss-ramp', 'RAMP', 'Mark', true)
 on conflict (username) do update
 set password = excluded.password,
+    password_hash = null,
     role = excluded.role,
     display_name = excluded.display_name,
     must_change_password = true,

@@ -74,6 +74,7 @@ create table if not exists app_users (
   id text primary key,
   username text not null unique,
   password text not null,
+  password_hash text,
   role text not null,
   display_name text,
   active boolean not null default true,
@@ -82,6 +83,7 @@ create table if not exists app_users (
   last_login_at timestamptz
 );
 
+alter table app_users add column if not exists password_hash text;
 alter table app_users add column if not exists must_change_password boolean not null default true;
 alter table app_users add column if not exists last_login_at timestamptz;
 `;

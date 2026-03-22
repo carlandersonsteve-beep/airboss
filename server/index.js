@@ -80,7 +80,10 @@ router.post('/change-password', async ({ body }) => {
 
   return {
     ok: true,
-    user,
+    user: {
+      ...user,
+      token: createSessionToken({ username: user.username, role: user.role }, env.sessionSecret),
+    },
   };
 });
 
@@ -94,39 +97,55 @@ router.post('/orders', async ({ body }) => ({
   item: await createOrder(body || {}),
 }));
 
-router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body }) => ({
-  ok: true,
-  item: await createOrderMessage({
-    ...(body || {}),
-    id: body?.id || crypto.randomUUID(),
-    orderId: params[0],
-  }),
-}));
+router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  return {
+    ok: true,
+    item: await createOrderMessage({
+      ...(body || {}),
+      id: body?.id || crypto.randomUUID(),
+      orderId: params[0],
+    }),
+  };
+});
 
-router.post('/alerts', async ({ body }) => ({
-  ok: true,
-  item: await createAlert({
-    ...(body || {}),
-    id: body?.id || crypto.randomUUID(),
-  }),
-}));
+router.post('/alerts', async ({ body, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  return {
+    ok: true,
+    item: await createAlert({
+      ...(body || {}),
+      id: body?.id || crypto.randomUUID(),
+    }),
+  };
+});
 
-router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params }) => ({
-  ok: true,
-  item: await resolveAlert(params[0]),
-}));
+router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE']);
+  return {
+    ok: true,
+    item: await resolveAlert(params[0]),
+  };
+});
 
-router.delete(/^\/alerts\/([^/]+)$/, async ({ params }) => ({
-  ok: true,
-  removed: await deleteAlert(params[0]),
-}));
+router.delete(/^\/alerts\/([^/]+)$/, async ({ params, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE']);
+  return {
+    ok: true,
+    removed: await deleteAlert(params[0]),
+  };
+});
 
-router.patch(/^\/orders\/([^/]+)$/, async ({ params, body }) => ({
-  ok: true,
-  item: await updateOrder(params[0], body || {}),
-}));
+router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  return {
+    ok: true,
+    item: await updateOrder(params[0], body || {}),
+  };
+});
 
-router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body }) => {
+router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   requireField(body?.role, 'role');
   const item = await upsertThreadRead({
     orderId: params[0],
@@ -177,6 +196,22 @@ const server = http.createServer(async (req, res) => {
 server.listen(env.port, () => {
   console.log(`AirBoss backend listening on http://localhost:${env.port}`);
 });
+
+function requireSession(req, allowedRoles = []) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  const session = verifySessionToken(token, env.sessionSecret);
+
+  if (!session) {
+    throw new AppError('Authentication required', 401);
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+    throw new AppError('Forbidden', 403, { requiredRoles: allowedRoles, actualRole: session.role });
+  }
+
+  return session;
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {

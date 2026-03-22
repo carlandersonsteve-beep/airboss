@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { query, withTransaction } from './client.js';
 import { AppError, requireField } from '../lib/errors.js';
 import { env } from '../lib/env.js';
+import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { canTransitionOrder, normalizeOrderStatus } from '../../src/core/workflow.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -496,22 +497,45 @@ export async function authenticateUser({ username, password }) {
 
   if (!env.databaseUrl) {
     const store = getLocalStore();
-    const user = store.users.find((item) => item.username === username && item.password === password && item.active);
+    const user = store.users.find((item) => item.username === username && item.active);
     if (!user) return null;
+
+    const matches = user.passwordHash
+      ? verifyPassword(password, user.passwordHash)
+      : user.password === password;
+    if (!matches) return null;
+
+    if (!user.passwordHash) {
+      user.passwordHash = hashPassword(password);
+    }
+
     user.lastLoginAt = new Date().toISOString();
     saveLocalStore(store);
     return mapLocalUser(user);
   }
 
   const result = await query(`
-    update app_users
-    set last_login_at = now()
-    where username = $1 and password = $2 and active = true
-    returning id, username, role, display_name, active, must_change_password
-  `, [username, password]);
+    select id, username, password, password_hash, role, display_name, active, must_change_password
+    from app_users
+    where username = $1 and active = true
+    limit 1
+  `, [username]);
 
   const row = result.rows[0];
   if (!row) return null;
+
+  const matches = row.password_hash
+    ? verifyPassword(password, row.password_hash)
+    : row.password === password;
+  if (!matches) return null;
+
+  const nextPasswordHash = row.password_hash || hashPassword(password);
+  await query(`
+    update app_users
+    set password_hash = $2,
+        last_login_at = now()
+    where id = $1
+  `, [row.id, nextPasswordHash]);
 
   return {
     id: row.id,
