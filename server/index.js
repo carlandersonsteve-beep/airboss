@@ -27,7 +27,7 @@ const router = createRouter();
 router.get('/health', async () => ({
   ok: true,
   service: 'airboss-backend',
-  mode: env.databaseUrl ? 'postgres-configured' : 'postgres-missing-config',
+  mode: env.databaseUrl ? 'postgres-configured' : 'local-file-store',
   databaseUrlConfigured: Boolean(env.databaseUrl),
 }));
 

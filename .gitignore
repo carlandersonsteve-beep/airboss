@@ -3,5 +3,8 @@
 node_modules/
 dist/
 build/
+server/data/
 *.tmp
 *.swp
+.env
+.env.*

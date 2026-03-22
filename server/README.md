@@ -26,11 +26,20 @@ It provides:
 - `POST /alerts`
 - `POST /orders/:id/read`
 
-These endpoints are now wired for real Postgres-backed persistence.
+These endpoints use:
+- Postgres when `DATABASE_URL` is configured
+- a local JSON file store when `DATABASE_URL` is missing
 
-If `DATABASE_URL` is missing, data endpoints will return a clear configuration error instead of silently pretending to persist.
+That gives AirBoss a real local run path without forcing Supabase or browser-only persistence.
 
 ## Run
+```bash
+cp .env.example .env
+# set DATABASE_URL if you want shared persistence
+npm run dev
+```
+
+You can still use:
 ```bash
 npm run dev:server
 ```

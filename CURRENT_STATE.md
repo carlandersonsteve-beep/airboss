@@ -46,7 +46,7 @@
 - browser globals/dependency bag are still transitional, not the final UI module system
 
 ## Immediate Next Focus
-- re-test the ops app after restoring `getExtractedComponent(...)`
-- likely ready for first meaningful review very soon if the blank-screen issue is resolved
+- keep the local Node + Postgres run path explicit and easy (`.env` + `npm run dev`)
 - preserve current workflow while improving maintainability
 - keep local-first testing stable while shrinking remaining inline complexity
+- continue treating browser-local fallback as a safety net, not the long-term shared system of record

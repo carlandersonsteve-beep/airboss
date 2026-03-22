@@ -340,6 +340,7 @@
             const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
             const [orderThreadReadState, setOrderThreadReadState] = useState(() => Storage.get('fbo_order_thread_reads') || { RAMP: {}, OFFICE: {} });
             const [backendMode, setBackendMode] = useState('unknown');
+            const markBackendWriteSuccess = () => setBackendMode((current) => current === 'local' ? 'local' : 'postgres');
             const currentRole = session?.role || 'OFFICE';
             // === MESSAGING FEATURE END ===
 
@@ -425,7 +426,7 @@
                             senderRole: sender,
                         });
                         setMessages(prev => prev.map(m => m.id === messageRecord.id ? response.item : m));
-                        setBackendMode('postgres');
+                        markBackendWriteSuccess();
                     } catch (error) {
                         console.log('Order message backend sync failed, kept locally', error.message);
                     }
@@ -498,7 +499,7 @@
                 }));
                 try {
                     await api.markOrderThreadRead(orderId, role, now);
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Thread read sync failed, kept locally', error.message);
                 }
@@ -532,7 +533,7 @@
                 try {
                     const response = await api.createCustomer(newCustomer);
                     setCustomers(prev => prev.map(c => c.id === newCustomer.id ? response.item : c));
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Customer backend sync failed, kept locally', error.message);
                 }
@@ -570,7 +571,7 @@
                     try {
                         const response = await api.updateOrder(orderId, updatedOrder);
                         setOrders(prev => prev.map(o => o.id === orderId ? response.item : o));
-                        setBackendMode('postgres');
+                        markBackendWriteSuccess();
                     } catch (error) {
                         console.log('Order backend sync failed, kept locally', error.message);
                     }
@@ -598,7 +599,7 @@
                 try {
                     const response = await api.createOrder(newOrder);
                     setOrders(prev => prev.map(o => o.id === newOrder.id ? response.item : o));
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Order backend sync failed, kept locally', error.message);
                 }
@@ -621,7 +622,7 @@
                 try {
                     const response = await api.createAlert(newTicket);
                     setTickets(prev => prev.map(t => t.id === newTicket.id ? response.item : t));
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Alert backend sync failed, kept locally', error.message);
                 }
@@ -633,7 +634,7 @@
                 try {
                     const response = await api.resolveAlert(ticketId);
                     setTickets(prev => prev.map(t => t.id === ticketId ? response.item : t));
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Alert resolve sync failed, kept locally', error.message);
                 }
@@ -643,7 +644,7 @@
                 setTickets(prev => prev.filter(t => t.id !== ticketId));
                 try {
                     await api.deleteAlert(ticketId);
-                    setBackendMode('postgres');
+                    markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Alert delete sync failed after local removal', error.message);
                 }
@@ -962,7 +963,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <main className="container mx-auto px-4 py-8">
                         <div className="card-wood rounded-xl p-6">
                         <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium ${backendMode === 'postgres' ? 'bg-green-50 text-green-800 border border-green-200' : backendMode === 'local-fallback' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                            {backendMode === 'postgres' ? 'Shared backend connected — live Supabase sync active for bootstrap, order threads, and alerts.' : backendMode === 'local-fallback' ? 'Backend unavailable — using local browser data fallback.' : 'Checking backend connection...'}
+                            {backendMode === 'postgres' ? 'Shared backend connected — live Postgres-backed sync active for bootstrap, order threads, and alerts.' : backendMode === 'local-fallback' ? 'Backend unavailable — using local browser data fallback.' : 'Checking backend connection...'}
                         </div>
                         {view === 'ramp' && (
                             <RampView 
@@ -1977,4 +1978,6 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         ReactDOM.render(<FBOSystem />, document.getElementById('root'));
     </script>
 </body>
+</html>
+ody>
 </html>

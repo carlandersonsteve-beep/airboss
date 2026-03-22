@@ -358,7 +358,7 @@
                     };
                     const orderResponse = await api.createOrder(backendOrderPayload);
                     savedOrder = orderResponse.item || backendOrderPayload;
-                    setBackendStatus('postgres');
+                    setBackendStatus('local-file');
                 } catch (error) {
                     console.log('Kiosk backend sync failed, kept locally', error.message);
                     setBackendStatus('local-fallback');
@@ -741,8 +741,8 @@
                         <h2 style={{fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '1rem', color: '#059669'}}>
                             Check-In Complete!
                         </h2>
-                        <div style={{marginBottom: '1rem', display: 'inline-block', padding: '0.6rem 1rem', borderRadius: '999px', background: backendStatus === 'postgres' ? '#dcfce7' : '#fef3c7', color: backendStatus === 'postgres' ? '#166534' : '#92400e', fontWeight: 700}}>
-                            {backendStatus === 'postgres' ? 'Shared ops system updated' : 'Saved locally — shared sync pending'}
+                        <div style={{marginBottom: '1rem', display: 'inline-block', padding: '0.6rem 1rem', borderRadius: '999px', background: backendStatus === 'connected' ? '#dcfce7' : '#fef3c7', color: backendStatus === 'connected' ? '#166534' : '#92400e', fontWeight: 700}}>
+                            {backendStatus === 'connected' ? 'Backend saved successfully' : 'Saved locally — shared sync pending'}
                         </div>
                         <p style={{fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem'}}>
                             Welcome to Mustang Aviation

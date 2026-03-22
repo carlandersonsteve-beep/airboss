@@ -11,6 +11,35 @@ It is intended to manage:
 
 This is being developed as a real product, not just an internal tool.
 
+## Local run
+
+AirBoss is currently a plain HTML front end served by a small Node backend.
+That backend is the right integration point for shared persistence.
+
+1. Copy env template:
+   ```bash
+   cp .env.example .env
+   ```
+2. Set `DATABASE_URL` in `.env` if you want shared Postgres persistence.
+   - If `DATABASE_URL` is missing, the backend now uses a local file-backed store for local development.
+   - Supabase is appropriate here only as the hosted Postgres backing store behind `DATABASE_URL`.
+3. Start the app:
+   ```bash
+   npm run dev
+   ```
+4. Open:
+   - Ops UI: <http://localhost:8787/>
+   - Kiosk: <http://localhost:8787/kiosk>
+
+Useful checks:
+```bash
+curl http://localhost:8787/health
+curl http://localhost:8787/bootstrap
+npm run db:schema
+```
+
 Current files:
-- index.html, main operations interface
-- kiosk.html, customer check-in interface
+- `index.html` — main operations interface
+- `kiosk.html` — customer check-in interface
+- `server/` — thin backend and Postgres integration
+- `src/` — runtime/domain refactor scaffold

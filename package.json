@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:server": "node server/index.js",
-    "db:schema": "node server/scripts/print-schema.js"
+    "dev": "node --env-file-if-exists=.env server/index.js",
+    "dev:server": "node --env-file-if-exists=.env server/index.js",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js"
   },
   "engines": {
     "node": ">=22"
