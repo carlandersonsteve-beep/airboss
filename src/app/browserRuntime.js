@@ -128,6 +128,8 @@
       }
       return this.transition(order, 'ready', {
         ...patch,
+        fuelQuantity: patch.fuelQuantity ?? patch.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null,
+        fuelActualGallons: patch.fuelActualGallons ?? patch.fuelQuantity ?? order.fuelActualGallons ?? null,
         completedAt: new Date().toISOString(),
       });
     },

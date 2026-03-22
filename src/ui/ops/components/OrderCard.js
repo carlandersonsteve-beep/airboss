@@ -51,25 +51,37 @@ window.AirBossComponents.OrderCard = function OrderCard({
 
   const handleSaveAndNotify = (actualFuel, completionNotes) => {
     const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
-      ? (order.fuelActualGallons ?? order.fuelQuantity ?? null)
+      ? (order.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null)
       : parseInt(actualFuel, 10);
+
+    const finalActualFuel = Number.isNaN(parsedActualFuel) ? null : parsedActualFuel;
 
     const updatedOrder = {
       ...order,
-      fuelActualGallons: Number.isNaN(parsedActualFuel) ? null : parsedActualFuel,
+      fuelActualGallons: finalActualFuel,
       services: editedServices,
       completionNotes: completionNotes || '',
       completedAt: new Date().toISOString(),
       status: 'ready',
     };
 
-    syncAdapters.syncToSheets('updateOrder', { order: updatedOrder });
-
-    markOrderReadyForFrontDesk(order.id, {
-      fuelActualGallons: Number.isNaN(parsedActualFuel) ? null : parsedActualFuel,
-      completionNotes: completionNotes || '',
-    });
     setShowCompleteModal(false);
+
+    try {
+      syncAdapters.syncToSheets('updateOrder', { order: updatedOrder });
+    } catch (error) {
+      console.log('Order sync bridge failed during completion', error.message);
+    }
+
+    try {
+      markOrderReadyForFrontDesk(order.id, {
+        fuelActualGallons: finalActualFuel,
+        fuelQuantity: finalActualFuel,
+        completionNotes: completionNotes || '',
+      });
+    } catch (error) {
+      console.log('Complete service transition failed', error.message);
+    }
   };
 
   const createAlert = (type, message) => {
