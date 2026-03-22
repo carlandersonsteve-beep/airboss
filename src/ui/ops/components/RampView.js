@@ -19,17 +19,19 @@ window.AirBossComponents.RampView = function RampView({
   const deps = window.AirBossComponentBridge.requireDeps(
     'RampView',
     window.AirBossDeps || {},
-    ['getTodayOrders', 'getActiveRampOrders', 'getClosedOrders', 'OrderCard']
+    ['getTodayOrders', 'getActiveRampOrders', 'getClosedOrders', 'getReadyForFrontDeskOrders', 'OrderCard']
   );
   const {
     getTodayOrders,
     getActiveRampOrders,
     getClosedOrders,
+    getReadyForFrontDeskOrders,
     OrderCard,
   } = deps;
 
   const todayOrders = getTodayOrders(orders);
   const activeOrders = getActiveRampOrders(orders);
+  const readyForFrontDeskOrders = getReadyForFrontDeskOrders(orders);
   const unreadThreadOrders = activeOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
 
   return (
@@ -97,6 +99,26 @@ window.AirBossComponents.RampView = function RampView({
               return (
                 <OrderCard
                   key={order.id}
+                  order={order}
+                  customer={customer}
+                  updateOrderStatus={updateOrderStatus}
+                  addTicket={addTicket}
+                  messages={messages}
+                  addMessage={addMessage}
+                  getUnreadOrderThreadCount={getUnreadOrderThreadCount}
+                  markOrderThreadRead={markOrderThreadRead}
+                  startOrderService={startOrderService}
+                  markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+                 key={order.id}
                   order={order}
                   customer={customer}
                   updateOrderStatus={updateOrderStatus}
