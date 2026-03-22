@@ -5,6 +5,7 @@ import { createRouter } from './lib/router.js';
 import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
 import { tryServeStatic } from './lib/static.js';
+import { createSessionToken, verifySessionToken } from './lib/auth.js';
 import {
   authenticateUser,
   changeUserPassword,
@@ -63,7 +64,10 @@ router.post('/login', async ({ body }) => {
 
   return {
     ok: true,
-    user,
+    user: {
+      ...user,
+      token: createSessionToken({ username: user.username, role: user.role }, env.sessionSecret),
+    },
   };
 });
 
