@@ -2,8 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query, withTransaction } from './client.js';
-import { requireField } from '../lib/errors.js';
+import { AppError, requireField } from '../lib/errors.js';
 import { env } from '../lib/env.js';
+import { canTransitionOrder, normalizeOrderStatus } from '../../src/core/workflow.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
