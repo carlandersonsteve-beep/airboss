@@ -52,9 +52,13 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
 
   const handleSaveAndNotify = (actualFuel, completionNotes) => {
+    const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
+      ? (order.fuelActualGallons ?? order.fuelQuantity ?? null)
+      : parseInt(actualFuel, 10);
+
     const updatedOrder = {
       ...order,
-      fuelQuantity: actualFuel ? parseInt(actualFuel) : order.fuelQuantity,
+      fuelActualGallons: Number.isNaN(parsedActualFuel) ? null : parsedActualFuel,
       services: editedServices,
       completionNotes: completionNotes || '',
       completedAt: new Date().toISOString(),
@@ -64,7 +68,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
     syncAdapters.syncToSheets('updateOrder', { order: updatedOrder });
 
     markOrderReadyForFrontDesk(order.id, {
-      fuelQuantity: actualFuel ? parseInt(actualFuel) : order.fuelQuantity,
+      fuelActualGallons: Number.isNaN(parsedActualFuel) ? null : parsedActualFuel,
       completionNotes: completionNotes || '',
     });
     setShowCompleteModal(false);

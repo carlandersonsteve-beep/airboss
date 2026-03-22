@@ -2,7 +2,7 @@ window.AirBossComponents = window.AirBossComponents || {};
 
 window.AirBossComponents.CompletionModal = function CompletionModal({ order, customer, onClose, onConfirm }) {
   const { useState } = React;
-  const [actualFuel, setActualFuel] = useState(order.fuelQuantity || '');
+  const [actualFuel, setActualFuel] = useState(order.fuelActualGallons ?? '');
   const [completionNotes, setCompletionNotes] = useState(order.completionNotes || '');
 
   return (
