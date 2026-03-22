@@ -69,10 +69,10 @@ After applying the schema, run the SQL in:
 - `server/db/seed_users.sql`
 
 Default logins created by that seed:
-- `admin` / `mustang-admin`
-- `frontdesk` / `mustang-office`
-- `ramp` / `mustang-ramp`
-- `kiosk` / `mustang-kiosk`
+- `steve` / `airboss-steve`
+- `tacie` / `airboss-tacie`
+- `ramp` / `airboss-ramp`
+- `kiosk` / `airboss-kiosk`
 
 These are intentionally simple pilot credentials and should be changed before broader rollout.
 

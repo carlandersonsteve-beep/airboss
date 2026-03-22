@@ -176,6 +176,10 @@ In progress.
   - added seed user SQL for Mustang v1 pilot credentials
   - updated the Node backend to serve static app files directly (`/`, `/kiosk`, manifest, service worker, assets)
   - documented the single-app deployment shape for Mustang v1
+- Refined pilot UX for tomorrow's testing:
+  - changed seeded users to cleaner human-facing Mustang test accounts (`steve`, `tacie`, `ramp`, `kiosk`)
+  - updated the login card to show the pilot credentials directly
+  - changed kiosk-role login behavior to redirect straight to `/kiosk`
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

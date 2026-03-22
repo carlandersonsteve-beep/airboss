@@ -40,10 +40,10 @@ npm run dev:server
 
 ## Immediate pilot credentials
 Seeded users currently are:
-- `admin / mustang-admin`
-- `frontdesk / mustang-office`
-- `ramp / mustang-ramp`
-- `kiosk / mustang-kiosk`
+- `steve / airboss-steve`
+- `tacie / airboss-tacie`
+- `ramp / airboss-ramp`
+- `kiosk / airboss-kiosk`
 
 Change these before broader rollout.
 
