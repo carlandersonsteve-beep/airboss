@@ -517,7 +517,7 @@
             // === MESSAGING FEATURE END ===
 
             const roleAllows = (role, targetView) => {
-                if (role === 'ADMIN') return ['ramp', 'office', 'chat', 'calendar'].includes(targetView);
+                if (role === 'ADMIN' || role === 'STEVE') return ['ramp', 'office', 'chat', 'calendar'].includes(targetView);
                 if (role === 'RAMP') return ['ramp', 'chat'].includes(targetView);
                 if (role === 'OFFICE') return ['office', 'chat', 'calendar'].includes(targetView);
                 if (role === 'KIOSK') return false;

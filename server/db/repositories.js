@@ -645,7 +645,7 @@ function createDefaultLocalStore() {
 
 function defaultLocalUsers() {
   return [
-    seedUser('steve', 'STEVE', 'Steve', 'airboss-steve'),
+    seedUser('steve', 'ADMIN', 'Steve', 'airboss-steve'),
     seedUser('tacie', 'OFFICE', 'Tacie', 'airboss-tacie'),
     seedUser('lindsey', 'OFFICE', 'Lindsey', 'airboss-office'),
     seedUser('lizbeth', 'OFFICE', 'Lizbeth', 'airboss-office'),
