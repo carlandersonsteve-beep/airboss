@@ -191,6 +191,7 @@ export async function updateOrder(orderId, patch = {}) {
     if (index === -1) return null;
 
     const current = store.orders[index];
+    validateOrderPatch(current, patch);
     const updated = {
       ...current,
       ...patch,
