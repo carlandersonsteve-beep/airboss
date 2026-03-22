@@ -7,6 +7,7 @@
   };
 
   const LEGACY_ORDER_STATUS_MAP = {
+    new: ORDER_STATUS.PENDING,
     pending: ORDER_STATUS.PENDING,
     'in-progress': ORDER_STATUS.IN_PROGRESS,
     in_progress: ORDER_STATUS.IN_PROGRESS,

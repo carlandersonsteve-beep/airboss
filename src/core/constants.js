@@ -16,6 +16,7 @@ export const ORDER_STATUS = {
 
 // Maps current legacy statuses to the canonical model.
 export const LEGACY_ORDER_STATUS_MAP = {
+  new: ORDER_STATUS.PENDING,
   pending: ORDER_STATUS.PENDING,
   'in-progress': ORDER_STATUS.IN_PROGRESS,
   ready: ORDER_STATUS.READY_FOR_FRONT_DESK,
