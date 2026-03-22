@@ -26,9 +26,9 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
                 placeholder="Enter actual gallons"
               />
-              {parseInt(actualFuel) !== order.fuelQuantity && actualFuel && (
+              {Number(actualFuel) !== Number(order.fuelQuantity || order.fuelRequestedGallons || 0) && actualFuel !== '' && (
                 <p className="text-sm text-orange-600 mt-2">
-                  Requested: {order.fuelQuantity}gal | Actual: {actualFuel}gal
+                  Requested: {order.fuelQuantity || order.fuelRequestedGallons || 0} gal | Actual: {actualFuel} gal
                 </p>
               )}
             </div>

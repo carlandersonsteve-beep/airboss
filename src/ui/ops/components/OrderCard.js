@@ -102,25 +102,17 @@ window.AirBossComponents.OrderCard = function OrderCard({
       <div className="mb-3">
         {order.fuelType && (
           <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded-lg">
-            <div className="font-semibold text-blue-900 mb-2">⛽ Fuel Service</div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <label className="text-sm text-gray-600">Actual Gallons Pumped:</label>
-                <input
-                  type="number"
-                  value={editedFuel}
-                  onChange={(e) => setEditedFuel(parseInt(e.target.value) || 0)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg font-bold text-lg"
-                  placeholder="0"
-                />
+            <div className="font-semibold text-blue-900 mb-2">⛽ Fuel Order</div>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-sm text-gray-600">Requested Fuel</div>
+                <div className="text-2xl font-bold text-gray-900">{order.fuelQuantity || order.fuelRequestedGallons || 0} gal</div>
               </div>
-              <div className="text-2xl font-bold text-gray-700 mt-5">{order.fuelType}</div>
+              <div className="text-2xl font-bold text-gray-700">{order.fuelType}</div>
             </div>
-            {order.fuelQuantity !== editedFuel && (
-              <div className="mt-2 text-sm text-orange-600">
-                ⚠️ Customer requested {order.fuelQuantity}gal, you're billing {editedFuel}gal
-              </div>
-            )}
+            <div className="mt-2 text-sm text-blue-900">
+              Actual gallons pumped are entered when Ramp completes the order and hands it to Front Desk.
+            </div>
           </div>
         )}
         {order.hangar && (
@@ -302,6 +294,31 @@ window.AirBossComponents.OrderCard = function OrderCard({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {showCompleteModal && (
+        <CompletionModal
+          order={order}
+          customer={customer}
+          onClose={() => setShowCompleteModal(false)}
+          onConfirm={handleSaveAndNotify}
+        />
+      )}
+    </div>
+  );
+};
+pletionModal
+          order={order}
+          customer={customer}
+          onClose={() => setShowCompleteModal(false)}
+          onConfirm={handleSaveAndNotify}
+        />
+      )}
+    </div>
+  );
+};
+        </div>
         </div>
       )}
 
