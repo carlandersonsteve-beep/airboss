@@ -21,7 +21,12 @@ Use a simple Node-friendly host first:
 
 ## Required environment variables
 - `DATABASE_URL`
+- `SESSION_SECRET`
 - optional: `PORT`
+
+## Recommended target
+Use the included `render.yaml` for the fastest first hosted deployment.
+There is also a Render walkthrough in `docs/DEPLOY_RENDER.md`.
 
 ## Runtime command
 ```bash

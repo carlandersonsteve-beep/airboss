@@ -23,6 +23,7 @@ That backend is the right integration point for shared persistence.
 2. Set `DATABASE_URL` in `.env` if you want shared Postgres persistence.
    - If `DATABASE_URL` is missing, the backend now uses a local file-backed store for local development.
    - Supabase is appropriate here only as the hosted Postgres backing store behind `DATABASE_URL`.
+   - For hosted deployment, also set `SESSION_SECRET`.
 3. Start the app:
    ```bash
    npm run dev
