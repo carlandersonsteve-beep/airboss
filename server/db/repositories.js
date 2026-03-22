@@ -500,12 +500,12 @@ export async function authenticateUser({ username, password }) {
     const user = store.users.find((item) => item.username === username && item.active);
     if (!user) return null;
 
-    const matches = user.passwordHash
-      ? verifyPassword(password, user.passwordHash)
-      : user.password === password;
+    const hashMatches = user.passwordHash ? verifyPassword(password, user.passwordHash) : false;
+    const plainMatches = user.password === password;
+    const matches = hashMatches || plainMatches;
     if (!matches) return null;
 
-    if (!user.passwordHash) {
+    if (!hashMatches) {
       user.passwordHash = hashPassword(password);
     }
 
@@ -742,4 +742,6 @@ function upsertById(items, item) {
     return;
   }
   items[index] = item;
+}
+s[index] = item;
 }
