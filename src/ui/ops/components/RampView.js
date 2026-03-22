@@ -7,6 +7,7 @@ window.AirBossComponents.RampView = function RampView({
   onNewOrder,
   onNewCustomer,
   onQuickFuel,
+  onViewOffice,
   updateOrderStatus,
   addTicket,
   messages,
@@ -89,9 +90,24 @@ window.AirBossComponents.RampView = function RampView({
       </div>
 
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h3 className="text-xl font-bold mb-4 text-gray-800">Active Orders</h3>
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <h3 className="text-xl font-bold text-gray-800">Active Orders</h3>
+          {readyForFrontDeskOrders.length > 0 && (
+            <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-900 px-4 py-2 rounded-lg">
+              <span className="font-semibold">{readyForFrontDeskOrders.length} aircraft waiting on Front Desk</span>
+              {onViewOffice && (
+                <button
+                  onClick={onViewOffice}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded text-sm font-bold transition"
+                >
+                  Open Front Desk
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {activeOrders.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No active orders. Click "Aircraft Arrival" to start.</p>
+          <p className="text-gray-500 text-center py-8">No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.</p>
         ) : (
           <div className="space-y-3">
             {activeOrders.map(order => {
