@@ -29,7 +29,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const [editedServices, setEditedServices] = useState(order.services || []);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showFuelVerify, setShowFuelVerify] = useState(false);
-  const [fuelVerified, setFuelVerified] = useState(false);
   const [fuelTypeInput, setFuelTypeInput] = useState('');
   const [fuelVerifyError, setFuelVerifyError] = useState(false);
 
@@ -256,7 +255,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
-                        setFuelVerified(true);
                         setShowFuelVerify(false);
                         startOrderService(order.id);
                       } else {
@@ -282,7 +280,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
                 <button
                   onClick={() => {
                     if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
-                      setFuelVerified(true);
                       setShowFuelVerify(false);
                       startOrderService(order.id);
                     } else {
@@ -297,31 +294,6 @@ window.AirBossComponents.OrderCard = function OrderCard({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {showCompleteModal && (
-        <CompletionModal
-          order={order}
-          customer={customer}
-          onClose={() => setShowCompleteModal(false)}
-          onConfirm={handleSaveAndNotify}
-        />
-      )}
-    </div>
-  );
-};
-pletionModal
-          order={order}
-          customer={customer}
-          onClose={() => setShowCompleteModal(false)}
-          onConfirm={handleSaveAndNotify}
-        />
-      )}
-    </div>
-  );
-};
-        </div>
         </div>
       )}
 
