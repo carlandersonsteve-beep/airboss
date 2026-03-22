@@ -1,7 +1,10 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = '/Users/steveanderson/Work/Airboss';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '../..');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',

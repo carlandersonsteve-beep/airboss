@@ -180,6 +180,9 @@ In progress.
   - changed seeded users to cleaner human-facing Mustang test accounts (`steve`, `tacie`, `ramp`, `kiosk`)
   - updated the login card to show the pilot credentials directly
   - changed kiosk-role login behavior to redirect straight to `/kiosk`
+- Performed immediate structural cleanup after audit:
+  - removed duplicated trailing app/render block garbage from `index.html`
+  - replaced hardcoded local filesystem root in backend static serving with a deployment-safe dynamic path
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
