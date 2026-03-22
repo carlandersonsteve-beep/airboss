@@ -134,23 +134,3 @@ window.AirBossComponents.RampView = function RampView({
     </div>
   );
 };
-                 key={order.id}
-                  order={order}
-                  customer={customer}
-                  updateOrderStatus={updateOrderStatus}
-                  addTicket={addTicket}
-                  messages={messages}
-                  addMessage={addMessage}
-                  getUnreadOrderThreadCount={getUnreadOrderThreadCount}
-                  markOrderThreadRead={markOrderThreadRead}
-                  startOrderService={startOrderService}
-                  markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
