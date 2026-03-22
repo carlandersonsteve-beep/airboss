@@ -180,6 +180,8 @@ In progress.
   - changed seeded users to cleaner human-facing Mustang test accounts (`steve`, `tacie`, `ramp`, `kiosk`)
   - updated the login card to show the pilot credentials directly
   - changed kiosk-role login behavior to redirect straight to `/kiosk`
+  - added first-login password change flow
+  - added tomorrow's office/ramp staff accounts with forced password change on first login
 - Performed immediate structural cleanup after audit:
   - removed duplicated trailing app/render block garbage from `index.html`
   - replaced hardcoded local filesystem root in backend static serving with a deployment-safe dynamic path

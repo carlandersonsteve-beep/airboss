@@ -7,6 +7,7 @@ import { schemaSql } from './db/schema.js';
 import { tryServeStatic } from './lib/static.js';
 import {
   authenticateUser,
+  changeUserPassword,
   createAlert,
   createCustomer,
   createOrder,
@@ -58,6 +59,23 @@ router.post('/login', async ({ body }) => {
 
   if (!user) {
     throw new AppError('Invalid username or password', 401);
+  }
+
+  return {
+    ok: true,
+    user,
+  };
+});
+
+router.post('/change-password', async ({ body }) => {
+  const user = await changeUserPassword({
+    username: body?.username,
+    currentPassword: body?.currentPassword,
+    newPassword: body?.newPassword,
+  });
+
+  if (!user) {
+    throw new AppError('Current password is incorrect', 401);
   }
 
   return {

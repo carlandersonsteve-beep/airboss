@@ -77,6 +77,11 @@ create table if not exists app_users (
   role text not null,
   display_name text,
   active boolean not null default true,
-  created_at timestamptz not null default now()
+  must_change_password boolean not null default true,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
 );
+
+alter table app_users add column if not exists must_change_password boolean not null default true;
+alter table app_users add column if not exists last_login_at timestamptz;
 `;

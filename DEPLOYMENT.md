@@ -42,7 +42,16 @@ npm run dev:server
 Seeded users currently are:
 - `steve / airboss-steve`
 - `tacie / airboss-tacie`
+- `lindsey / airboss-office`
+- `lizbeth / airboss-office`
+- `amanda / airboss-office`
 - `ramp / airboss-ramp`
+- `neil / airboss-ramp`
+- `john / airboss-ramp`
+- `wade / airboss-ramp`
+- `todd / airboss-ramp`
+- `clark / airboss-ramp`
+- `mark / airboss-ramp`
 - `kiosk / airboss-kiosk`
 
 Change these before broader rollout.

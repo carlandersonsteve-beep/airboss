@@ -367,10 +367,10 @@ export async function authenticateUser({ username, password }) {
   requireField(password, 'password');
 
   const result = await query(`
-    select id, username, role, display_name, active
-    from app_users
+    update app_users
+    set last_login_at = now()
     where username = $1 and password = $2 and active = true
-    limit 1
+    returning id, username, role, display_name, active, must_change_password
   `, [username, password]);
 
   const row = result.rows[0];
@@ -382,6 +382,33 @@ export async function authenticateUser({ username, password }) {
     role: row.role,
     displayName: row.display_name,
     active: row.active,
+    mustChangePassword: row.must_change_password,
+  };
+}
+
+export async function changeUserPassword({ username, currentPassword, newPassword }) {
+  requireField(username, 'username');
+  requireField(currentPassword, 'currentPassword');
+  requireField(newPassword, 'newPassword');
+
+  const result = await query(`
+    update app_users
+    set password = $3,
+        must_change_password = false
+    where username = $1 and password = $2 and active = true
+    returning id, username, role, display_name, active, must_change_password
+  `, [username, currentPassword, newPassword]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    displayName: row.display_name,
+    active: row.active,
+    mustChangePassword: row.must_change_password,
   };
 }
 
