@@ -4,6 +4,7 @@ import { bootstrapPayload } from './lib/bootstrap.js';
 import { createRouter } from './lib/router.js';
 import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
+import { tryServeStatic } from './lib/static.js';
 import {
   authenticateUser,
   createAlert,
@@ -124,6 +125,11 @@ router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body }) => {
 const server = http.createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+    if (req.method === 'GET' && tryServeStatic(requestUrl, res)) {
+      return;
+    }
+
     const result = await router.handle(req, requestUrl);
 
     if (!result) {

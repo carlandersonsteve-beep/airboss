@@ -174,6 +174,8 @@ In progress.
   - added simple backend login endpoint against `app_users`
   - added basic session-based role gating in the ops app (Ramp / Office / Admin)
   - added seed user SQL for Mustang v1 pilot credentials
+  - updated the Node backend to serve static app files directly (`/`, `/kiosk`, manifest, service worker, assets)
+  - documented the single-app deployment shape for Mustang v1
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`

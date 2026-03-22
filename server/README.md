@@ -35,6 +35,10 @@ If `DATABASE_URL` is missing, data endpoints will return a clear configuration e
 npm run dev:server
 ```
 
+The backend now serves both:
+- API endpoints
+- static AirBoss app files (`/`, `/kiosk`, assets, manifest, service worker)
+
 Default port:
 - `8787`
 
