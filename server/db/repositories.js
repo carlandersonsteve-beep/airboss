@@ -203,6 +203,12 @@ export async function updateOrder(orderId, patch = {}) {
     return updated;
   }
 
+  const existing = await query(`select * from orders where id = $1`, [orderId]);
+  if (!existing.rows[0]) return null;
+
+  const current = mapOrderRow(existing.rows[0]);
+  validateOrderPatch(current, patch);
+
   const fields = [];
   const values = [];
   let index = 1;
@@ -549,6 +555,23 @@ export async function changeUserPassword({ username, currentPassword, newPasswor
     active: row.active,
     mustChangePassword: row.must_change_password,
   };
+}
+
+function validateOrderPatch(currentOrder, patch) {
+  if (!currentOrder || patch.status === undefined || patch.status === null) return;
+
+  const currentStatus = normalizeOrderStatus(currentOrder.status);
+  const nextStatus = normalizeOrderStatus(patch.status);
+
+  if (currentStatus === nextStatus) return;
+
+  if (!canTransitionOrder(currentStatus, nextStatus)) {
+    throw new AppError(
+      `Invalid order status transition: ${currentOrder.status} -> ${patch.status}`,
+      400,
+      { currentStatus: currentOrder.status, nextStatus: patch.status }
+    );
+  }
 }
 
 function mapCustomerRow(row) {
