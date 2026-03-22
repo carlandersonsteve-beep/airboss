@@ -27,14 +27,22 @@ That backend is the right integration point for shared persistence.
    ```bash
    npm run dev
    ```
+   Or for a durable local test session that keeps running even if the parent terminal/agent process exits:
+   ```bash
+   npm run local:start
+   ```
+   Check status with:
+   ```bash
+   npm run local:status
+   ```
 4. Open:
-   - Ops UI: <http://localhost:8787/>
-   - Kiosk: <http://localhost:8787/kiosk>
+   - Ops UI: <http://localhost:8792/>
+   - Kiosk: <http://localhost:8792/kiosk>
 
 Useful checks:
 ```bash
-curl http://localhost:8787/health
-curl http://localhost:8787/bootstrap
+curl http://localhost:8792/health
+curl http://localhost:8792/bootstrap
 npm run db:schema
 ```
 

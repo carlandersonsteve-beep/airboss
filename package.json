@@ -7,6 +7,10 @@
     "dev": "node --env-file-if-exists=.env server/index.js",
     "dev:server": "node --env-file-if-exists=.env server/index.js",
     "start": "node --env-file-if-exists=.env server/index.js",
+    "local:start": "bash scripts/local-server.sh start",
+    "local:stop": "bash scripts/local-server.sh stop",
+    "local:restart": "bash scripts/local-server.sh restart",
+    "local:status": "bash scripts/local-server.sh status",
     "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js"
   },
   "engines": {
