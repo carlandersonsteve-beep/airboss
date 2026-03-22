@@ -743,5 +743,3 @@ function upsertById(items, item) {
   }
   items[index] = item;
 }
-s[index] = item;
-}
