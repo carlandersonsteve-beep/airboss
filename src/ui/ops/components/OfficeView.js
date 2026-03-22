@@ -34,6 +34,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
 
   const [filter, setFilter] = useState('today');
   const [expandedThreadOrderId, setExpandedThreadOrderId] = useState(null);
+  const [finalizeOrderId, setFinalizeOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
   const unreadReadyThreads = readyToBillOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
@@ -90,6 +91,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
   const totalJetA = getFuelTotal(filteredOrders, 'JET-A');
   const total100LL = getFuelTotal(filteredOrders, '100LL');
+  const finalizeOrder = orders.find(order => order.id === finalizeOrderId) || null;
+  const finalizeCustomer = finalizeOrder ? customers.find(c => c.id === finalizeOrder.customerId) : null;
 
   return (
     <div>
@@ -293,9 +296,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
           })}
         </div>
       </div>
-    </div>
-  );
-};
+
+      {finalizeOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-green-700 text-white p-6 rounded-t-xl">

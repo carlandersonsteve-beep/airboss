@@ -2,8 +2,12 @@ window.AirBossComponents = window.AirBossComponents || {};
 
 window.AirBossComponents.CompletionModal = function CompletionModal({ order, customer, onClose, onConfirm }) {
   const { useState } = React;
+  const requestedFuel = Number(order.fuelRequestedGallons ?? order.fuelQuantity ?? 0);
   const [actualFuel, setActualFuel] = useState(order.fuelActualGallons ?? '');
   const [completionNotes, setCompletionNotes] = useState(order.completionNotes || '');
+  const actualFuelNumber = actualFuel === '' ? null : Number(actualFuel);
+  const hasFuelVariance = actualFuel !== '' && !Number.isNaN(actualFuelNumber) && requestedFuel !== actualFuelNumber;
+  const fuelVariance = hasFuelVariance ? actualFuelNumber - requestedFuel : 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -51,6 +55,11 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
               rows="4"
               placeholder="Billing notes, issues, completed services, etc."
             />
+            {hasFuelVariance && !completionNotes.trim() && (
+              <div className="text-xs text-amber-700 mt-2">
+                Add a note explaining the fuel variance before handing off to Front Desk.
+              </div>
+            )}
           </div>
         </div>
 
