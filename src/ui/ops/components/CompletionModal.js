@@ -26,10 +26,16 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
                 placeholder="Enter actual gallons"
               />
-              {Number(actualFuel) !== Number(order.fuelQuantity || order.fuelRequestedGallons || 0) && actualFuel !== '' && (
-                <p className="text-sm text-orange-600 mt-2">
-                  Requested: {order.fuelQuantity || order.fuelRequestedGallons || 0} gal | Actual: {actualFuel} gal
-                </p>
+              {hasFuelVariance && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                  <div className="text-sm font-bold text-amber-900">⚠️ Fuel variance warning</div>
+                  <div className="text-sm text-amber-800 mt-1">
+                    Requested: {requestedFuel} gal · Actual: {actualFuel} gal · Difference: {fuelVariance > 0 ? '+' : ''}{fuelVariance} gal
+                  </div>
+                  <div className="text-xs text-amber-700 mt-1">
+                    Double-check the gallons and leave a note for Front Desk if this variance is intentional.
+                  </div>
+                </div>
               )}
             </div>
           )}

@@ -275,7 +275,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                   {isReadyStatus(order.status) && (
                     <>
                       <button onClick={() => recallOrder(order.id)} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm font-medium">↩ Recall</button>
-                      <button onClick={() => closeOrder(order.id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">Finalize</button>
+                      <button onClick={() => setFinalizeOrderId(order.id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">Finalize</button>
                       {!showThread && (
                         <button onClick={() => setExpandedThreadOrderId(order.id)} className="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded text-sm font-medium">💬 Message Ramp</button>
                       )}
@@ -293,6 +293,80 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
           })}
         </div>
       </div>
+    </div>
+  );
+};
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-green-700 text-white p-6 rounded-t-xl">
+              <h3 className="text-2xl font-bold">Finalize Billing Review</h3>
+              <p className="mt-1 opacity-90">{finalizeCustomer?.tailNumber || finalizeOrder.tailNumber} — {finalizeCustomer?.pilotName || finalizeCustomer?.ownerName || 'Customer'}</p>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 font-bold">Aircraft</div>
+                  <div className="text-lg font-bold text-gray-900 mt-1">{finalizeCustomer?.tailNumber || finalizeOrder.tailNumber || 'Unknown'}</div>
+                  <div className="text-sm text-gray-600">{finalizeCustomer?.aircraftType || finalizeOrder.aircraft || 'Unknown Type'}</div>
+                  <div className="text-sm text-gray-600 mt-1">{finalizeCustomer?.pilotName || finalizeCustomer?.ownerName || finalizeOrder.customerName || 'Unknown customer'}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 font-bold">Departure</div>
+                  <div className="text-lg font-bold text-gray-900 mt-1">{finalizeOrder.departureDate || 'Not set'}</div>
+                  <div className="text-sm text-gray-600">{finalizeOrder.departureTime || 'No departure time set'}</div>
+                  <div className="text-sm text-gray-600 mt-1">Purpose: {finalizeOrder.purpose || 'Not specified'}</div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="text-xs uppercase tracking-wide text-blue-700 font-bold mb-2">Fuel Summary</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-gray-500">Fuel Type</div>
+                    <div className="font-bold text-gray-900">{finalizeOrder.fuelType || 'None'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Requested</div>
+                    <div className="font-bold text-gray-900">{finalizeOrder.fuelRequestedGallons ?? finalizeOrder.fuelQuantity ?? 0} gal</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Actual</div>
+                    <div className="font-bold text-gray-900">{finalizeOrder.fuelActualGallons ?? finalizeOrder.fuelQuantity ?? 0} gal</div>
+                  </div>
+                </div>
+                {(Number(finalizeOrder.fuelActualGallons ?? finalizeOrder.fuelQuantity ?? 0) !== Number(finalizeOrder.fuelRequestedGallons ?? finalizeOrder.fuelQuantity ?? 0)) && (
+                  <div className="mt-3 text-sm font-medium text-amber-800 bg-amber-100 border border-amber-300 rounded px-3 py-2">
+                    ⚠️ Fuel variance detected. Confirm billing is based on the actual gallons pumped.
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="text-xs uppercase tracking-wide text-gray-500 font-bold mb-2">Services & Notes</div>
+                <div className="text-sm text-gray-800"><span className="font-medium">Services:</span> {(finalizeOrder.services && finalizeOrder.services.length > 0) ? finalizeOrder.services.join(', ') : 'None'}</div>
+                <div className="text-sm text-gray-800 mt-2"><span className="font-medium">Handoff Notes:</span> {finalizeOrder.completionNotes || 'None'}</div>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => setFinalizeOrderId(null)}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg font-medium transition"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  closeOrder(finalizeOrder.id);
+                  setFinalizeOrderId(null);
+                }}
+                className="flex-1 bg-green-700 hover:bg-green-800 text-white px-6 py-3 rounded-lg font-bold transition"
+              >
+                Finalize & Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
