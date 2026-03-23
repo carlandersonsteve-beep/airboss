@@ -1,7 +1,7 @@
 {
-  "name": "AirBoss",
-  "short_name": "AirBoss",
-  "description": "Mustang Aviation operations, ramp coordination, and customer check-in.",
+  "name": "GroundCore",
+  "short_name": "GroundCore",
+  "description": "GroundCore operations, ramp coordination, and customer check-in.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",

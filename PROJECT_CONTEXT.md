@@ -1,7 +1,7 @@
-# AirBoss Project Context
+# GroundCore Project Context
 
 ## Mission
-AirBoss is a digital operations platform for FBOs.
+GroundCore is a digital operations platform for FBOs.
 
 Its job is to help the operation run cleanly from arrival through service completion.
 

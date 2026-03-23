@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="AirBoss">
+    <meta name="apple-mobile-web-app-title" content="GroundCore">
     <meta name="theme-color" content="#8b1e2d">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
-    <title>AirBoss - Mustang Aviation</title>
+    <title>GroundCore - Mustang Aviation</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -188,7 +188,7 @@
         };
 
         const API_BASE_URL = `${window.location.protocol === 'file:' ? 'http://localhost:8787' : window.location.origin}`;
-        const SESSION_KEY = 'airboss_session';
+        const SESSION_KEY = 'groundcore_session';
 
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', async () => {
@@ -383,7 +383,7 @@
                         setOrderThreadReadState(data.threadReads || { RAMP: {}, OFFICE: {} });
                     } catch (error) {
                         if (cancelled) return;
-                        console.log('AirBoss backend bootstrap unavailable, using local cache', error.message);
+                        console.log('GroundCore backend bootstrap unavailable, using local cache', error.message);
                         setBackendMode('local-fallback');
                     }
                 };
@@ -761,7 +761,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <div className="min-h-screen flex items-center justify-center px-4 py-10">
                         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
                             <div className="text-center mb-6">
-                                <div className="text-4xl font-black mustang-red-text mb-2">AirBoss</div>
+                                <div className="text-4xl font-black mustang-red-text mb-2">GroundCore</div>
                                 <div className="text-gray-600">Mustang Aviation operations access</div>
                                 <div className="text-xs text-gray-500 mt-2">Sign in to the right surface and get straight to work.</div>
                             </div>
@@ -798,10 +798,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                     Sign In
                                 </button>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Admin</span><br />steve / airboss-steve</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Front Desk</span><br />tacie / airboss-tacie</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Ramp</span><br />ramp / airboss-ramp</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Kiosk</span><br />kiosk / airboss-kiosk</div>
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Admin</span><br />steve / groundcore-steve</div>
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Front Desk</span><br />tacie / groundcore-tacie</div>
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Ramp</span><br />ramp / groundcore-ramp</div>
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Kiosk</span><br />kiosk / groundcore-kiosk</div>
                                 </div>
                             </div>
                         </div>
@@ -864,7 +864,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                             <div className="flex justify-between items-center flex-wrap gap-4">
                                 <div>
                                     <h1 className="text-3xl font-bold western-text flex items-center gap-2">
-                                        AirBoss
+                                        GroundCore
                                     </h1>
                                     <div className="text-sm opacity-90 western-text" style={{color: '#c9a961'}}>
                                         Mustang Aviation • Pierre, SD • "Where the Midwest Meets the Wild West"

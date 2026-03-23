@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: airboss
+    name: groundcore
     runtime: node
     plan: starter
     buildCommand: npm install

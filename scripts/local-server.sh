@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PID_FILE="$ROOT_DIR/.airboss-server.pid"
-LOG_FILE="$ROOT_DIR/.airboss-server.log"
+PID_FILE="$ROOT_DIR/.groundcore-server.pid"
+LOG_FILE="$ROOT_DIR/.groundcore-server.log"
 PORT_VALUE="${PORT:-}"
 
 if [[ -f "$ROOT_DIR/.env" ]] && [[ -z "$PORT_VALUE" ]]; then
@@ -20,7 +20,7 @@ is_running() {
 
 start_server() {
   if is_running; then
-    echo "AirBoss already running on PID $(cat "$PID_FILE")"
+    echo "GroundCore already running on PID $(cat "$PID_FILE")"
     exit 0
   fi
 
@@ -30,17 +30,17 @@ start_server() {
   sleep 1
 
   if is_running; then
-    echo "AirBoss started on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
+    echo "GroundCore started on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
     echo "Log: $LOG_FILE"
   else
-    echo "AirBoss failed to start. Check $LOG_FILE" >&2
+    echo "GroundCore failed to start. Check $LOG_FILE" >&2
     exit 1
   fi
 }
 
 stop_server() {
   if ! is_running; then
-    echo "AirBoss is not running"
+    echo "GroundCore is not running"
     rm -f "$PID_FILE"
     return 0
   fi
@@ -50,16 +50,16 @@ stop_server() {
   kill "$pid" 2>/dev/null || true
   sleep 1
   rm -f "$PID_FILE"
-  echo "AirBoss stopped"
+  echo "GroundCore stopped"
 }
 
 status_server() {
   if is_running; then
-    echo "AirBoss running on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
+    echo "GroundCore running on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
     echo "Log: $LOG_FILE"
     return 0
   else
-    echo "AirBoss is not running"
+    echo "GroundCore is not running"
     return 1
   fi
 }

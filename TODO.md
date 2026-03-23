@@ -8,7 +8,7 @@
 - recommend a cleaner structure
 
 ## Next
-- define AirBoss as a real product
+- define GroundCore as a real product
 - improve workflow clarity
 - improve reliability
 - prepare for phased refactor

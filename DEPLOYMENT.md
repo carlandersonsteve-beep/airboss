@@ -1,7 +1,7 @@
-# AirBoss Deployment Plan
+# GroundCore Deployment Plan
 
 ## Mustang v1 target
-Deploy AirBoss as a single HTTPS app:
+Deploy GroundCore as a single HTTPS app:
 - Node backend serves API + static frontend
 - Supabase provides hosted Postgres
 - PWA installability works from the same origin
@@ -34,7 +34,7 @@ npm run dev:server
 ```
 
 ## Routes
-- `/` → AirBoss ops app
+- `/` → GroundCore ops app
 - `/kiosk` → customer check-in kiosk
 - `/manifest.webmanifest`
 - `/sw.js`
@@ -45,19 +45,19 @@ npm run dev:server
 
 ## Immediate pilot credentials
 Seeded users currently are:
-- `steve / airboss-steve`
-- `tacie / airboss-tacie`
-- `lindsey / airboss-office`
-- `lizbeth / airboss-office`
-- `amanda / airboss-office`
-- `ramp / airboss-ramp`
-- `neil / airboss-ramp`
-- `john / airboss-ramp`
-- `wade / airboss-ramp`
-- `todd / airboss-ramp`
-- `clark / airboss-ramp`
-- `mark / airboss-ramp`
-- `kiosk / airboss-kiosk`
+- `steve / groundcore-steve`
+- `tacie / groundcore-tacie`
+- `lindsey / groundcore-office`
+- `lizbeth / groundcore-office`
+- `amanda / groundcore-office`
+- `ramp / groundcore-ramp`
+- `neil / groundcore-ramp`
+- `john / groundcore-ramp`
+- `wade / groundcore-ramp`
+- `todd / groundcore-ramp`
+- `clark / groundcore-ramp`
+- `mark / groundcore-ramp`
+- `kiosk / groundcore-kiosk`
 
 Change these before broader rollout.
 

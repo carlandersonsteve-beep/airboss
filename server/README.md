@@ -1,9 +1,9 @@
-# AirBoss Backend Scaffold
+# GroundCore Backend Scaffold
 
-This is the first thin shared-backend scaffold for AirBoss.
+This is the first thin shared-backend scaffold for GroundCore.
 
 ## Goal
-Move AirBoss away from browser-local-only state and toward a shared operations backbone for:
+Move GroundCore away from browser-local-only state and toward a shared operations backbone for:
 - orders
 - order threads
 - alerts
@@ -30,7 +30,7 @@ These endpoints use:
 - Postgres when `DATABASE_URL` is configured
 - a local JSON file store when `DATABASE_URL` is missing
 
-That gives AirBoss a real local run path without forcing Supabase or browser-only persistence.
+That gives GroundCore a real local run path without forcing Supabase or browser-only persistence.
 
 ## Run
 ```bash
@@ -46,7 +46,7 @@ npm run dev:server
 
 The backend now serves both:
 - API endpoints
-- static AirBoss app files (`/`, `/kiosk`, assets, manifest, service worker)
+- static GroundCore app files (`/`, `/kiosk`, assets, manifest, service worker)
 
 Default port:
 - `8787`
@@ -78,19 +78,19 @@ After applying the schema, run the SQL in:
 - `server/db/seed_users.sql`
 
 Default logins created by that seed:
-- `steve` / `airboss-steve`
-- `tacie` / `airboss-tacie`
-- `lindsey` / `airboss-office`
-- `lizbeth` / `airboss-office`
-- `amanda` / `airboss-office`
-- `ramp` / `airboss-ramp`
-- `neil` / `airboss-ramp`
-- `john` / `airboss-ramp`
-- `wade` / `airboss-ramp`
-- `todd` / `airboss-ramp`
-- `clark` / `airboss-ramp`
-- `mark` / `airboss-ramp`
-- `kiosk` / `airboss-kiosk`
+- `steve` / `groundcore-steve`
+- `tacie` / `groundcore-tacie`
+- `lindsey` / `groundcore-office`
+- `lizbeth` / `groundcore-office`
+- `amanda` / `groundcore-office`
+- `ramp` / `groundcore-ramp`
+- `neil` / `groundcore-ramp`
+- `john` / `groundcore-ramp`
+- `wade` / `groundcore-ramp`
+- `todd` / `groundcore-ramp`
+- `clark` / `groundcore-ramp`
+- `mark` / `groundcore-ramp`
+- `kiosk` / `groundcore-kiosk`
 
 These are intentionally simple pilot credentials and should be changed before broader rollout.
 

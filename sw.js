@@ -1,4 +1,4 @@
-const CACHE_NAME = 'airboss-shell-v2';
+const CACHE_NAME = 'groundcore-shell-v1';
 const ASSETS = [
   '/',
   '/index.html',

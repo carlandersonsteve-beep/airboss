@@ -1,4 +1,4 @@
-# Deploy AirBoss on Render
+# Deploy GroundCore on Render
 
 ## Required before deploy
 - A Render account
@@ -23,7 +23,7 @@
 - Install as a PWA from the browser
 
 ## Notes
-- AirBoss serves both frontend and backend from one Node service.
+- GroundCore serves both frontend and backend from one Node service.
 - Kiosk check-in remains open by design.
 - Ops write routes now require a signed session token.
 - For production, use Supabase Postgres instead of the local file store.

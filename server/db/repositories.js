@@ -694,19 +694,19 @@ function createDefaultLocalStore() {
 
 function defaultLocalUsers() {
   return [
-    seedUser('steve', 'ADMIN', 'Steve', 'airboss-steve'),
-    seedUser('tacie', 'OFFICE', 'Tacie', 'airboss-tacie'),
-    seedUser('lindsey', 'OFFICE', 'Lindsey', 'airboss-office'),
-    seedUser('lizbeth', 'OFFICE', 'Lizbeth', 'airboss-office'),
-    seedUser('amanda', 'OFFICE', 'Amanda', 'airboss-office'),
-    seedUser('ramp', 'RAMP', 'Ramp', 'airboss-ramp'),
-    seedUser('neil', 'RAMP', 'Neil', 'airboss-ramp'),
-    seedUser('john', 'RAMP', 'John', 'airboss-ramp'),
-    seedUser('wade', 'RAMP', 'Wade', 'airboss-ramp'),
-    seedUser('todd', 'RAMP', 'Todd', 'airboss-ramp'),
-    seedUser('clark', 'RAMP', 'Clark', 'airboss-ramp'),
-    seedUser('mark', 'RAMP', 'Mark', 'airboss-ramp'),
-    seedUser('kiosk', 'KIOSK', 'Kiosk', 'airboss-kiosk'),
+    seedUser('steve', 'ADMIN', 'Steve', 'groundcore-steve'),
+    seedUser('tacie', 'OFFICE', 'Tacie', 'groundcore-tacie'),
+    seedUser('lindsey', 'OFFICE', 'Lindsey', 'groundcore-office'),
+    seedUser('lizbeth', 'OFFICE', 'Lizbeth', 'groundcore-office'),
+    seedUser('amanda', 'OFFICE', 'Amanda', 'groundcore-office'),
+    seedUser('ramp', 'RAMP', 'Ramp', 'groundcore-ramp'),
+    seedUser('neil', 'RAMP', 'Neil', 'groundcore-ramp'),
+    seedUser('john', 'RAMP', 'John', 'groundcore-ramp'),
+    seedUser('wade', 'RAMP', 'Wade', 'groundcore-ramp'),
+    seedUser('todd', 'RAMP', 'Todd', 'groundcore-ramp'),
+    seedUser('clark', 'RAMP', 'Clark', 'groundcore-ramp'),
+    seedUser('mark', 'RAMP', 'Mark', 'groundcore-ramp'),
+    seedUser('kiosk', 'KIOSK', 'Kiosk', 'groundcore-kiosk'),
   ];
 }
 

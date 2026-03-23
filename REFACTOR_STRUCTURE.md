@@ -1,7 +1,7 @@
-# AirBoss Refactor Structure
+# GroundCore Refactor Structure
 
 ## Goal
-Refactor AirBoss into a maintainable product structure **without changing the core workflow first**.
+Refactor GroundCore into a maintainable product structure **without changing the core workflow first**.
 
 This is a structure-first refactor.
 The objective is to separate concerns, normalize the domain model, and make future backend migration straightforward.
@@ -501,14 +501,14 @@ Keep labels/user-facing wording separate from domain constants.
 - saves through repository
 - triggers sync/backup hooks
 
-This is the core architectural shift AirBoss needs.
+This is the core architectural shift GroundCore needs.
 
 ---
 
 ## 8. What Success Looks Like After Phase 1
 
 After the first refactor phase:
-- AirBoss still behaves roughly the same
+- GroundCore still behaves roughly the same
 - current workflow is preserved
 - files are separated by responsibility
 - order workflow is explicit and testable

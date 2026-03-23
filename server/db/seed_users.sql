@@ -10,19 +10,19 @@ delete from app_users where id in (
 
 insert into app_users (id, username, password, role, display_name, must_change_password)
 values
-  ('usr-admin-1', 'steve', 'airboss-steve', 'ADMIN', 'Steve', true),
-  ('usr-office-1', 'tacie', 'airboss-tacie', 'OFFICE', 'Tacie', true),
-  ('usr-ramp-1', 'ramp', 'airboss-ramp', 'RAMP', 'Ramp Operations', true),
-  ('usr-kiosk-1', 'kiosk', 'airboss-kiosk', 'KIOSK', 'Customer Kiosk', true),
-  ('usr-office-2', 'lindsey', 'airboss-office', 'OFFICE', 'Lindsey', true),
-  ('usr-office-3', 'lizbeth', 'airboss-office', 'OFFICE', 'LizBeth', true),
-  ('usr-office-4', 'amanda', 'airboss-office', 'OFFICE', 'Amanda', true),
-  ('usr-ramp-2', 'neil', 'airboss-ramp', 'RAMP', 'Neil', true),
-  ('usr-ramp-3', 'john', 'airboss-ramp', 'RAMP', 'John', true),
-  ('usr-ramp-4', 'wade', 'airboss-ramp', 'RAMP', 'Wade', true),
-  ('usr-ramp-5', 'todd', 'airboss-ramp', 'RAMP', 'Todd', true),
-  ('usr-ramp-6', 'clark', 'airboss-ramp', 'RAMP', 'Clark', true),
-  ('usr-ramp-7', 'mark', 'airboss-ramp', 'RAMP', 'Mark', true)
+  ('usr-admin-1', 'steve', 'groundcore-steve', 'ADMIN', 'Steve', true),
+  ('usr-office-1', 'tacie', 'groundcore-tacie', 'OFFICE', 'Tacie', true),
+  ('usr-ramp-1', 'ramp', 'groundcore-ramp', 'RAMP', 'Ramp Operations', true),
+  ('usr-kiosk-1', 'kiosk', 'groundcore-kiosk', 'KIOSK', 'Customer Kiosk', true),
+  ('usr-office-2', 'lindsey', 'groundcore-office', 'OFFICE', 'Lindsey', true),
+  ('usr-office-3', 'lizbeth', 'groundcore-office', 'OFFICE', 'LizBeth', true),
+  ('usr-office-4', 'amanda', 'groundcore-office', 'OFFICE', 'Amanda', true),
+  ('usr-ramp-2', 'neil', 'groundcore-ramp', 'RAMP', 'Neil', true),
+  ('usr-ramp-3', 'john', 'groundcore-ramp', 'RAMP', 'John', true),
+  ('usr-ramp-4', 'wade', 'groundcore-ramp', 'RAMP', 'Wade', true),
+  ('usr-ramp-5', 'todd', 'groundcore-ramp', 'RAMP', 'Todd', true),
+  ('usr-ramp-6', 'clark', 'groundcore-ramp', 'RAMP', 'Clark', true),
+  ('usr-ramp-7', 'mark', 'groundcore-ramp', 'RAMP', 'Mark', true)
 on conflict (username) do update
 set password = excluded.password,
     password_hash = null,

@@ -1,7 +1,7 @@
 # Current State
 
 ## Existing Files
-- `index.html` — main AirBoss operations interface
+- `index.html` — main GroundCore operations interface
 - `kiosk.html` — customer check-in kiosk
 - `src/` — new refactor scaffold for core/data/domain layers
 - `src/app/browserRuntime.js` — browser-safe runtime bridge used by the live local app

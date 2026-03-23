@@ -1,4 +1,4 @@
-# AirBoss Worklog
+# GroundCore Worklog
 
 Use this file as the session-to-session checkpoint.
 
@@ -20,7 +20,7 @@ Phase 1A — Structure-first refactor scaffold and initial wiring
 In progress.
 
 ## Completed
-- Read and assessed the current AirBoss app (`index.html`, `kiosk.html`)
+- Read and assessed the current GroundCore app (`index.html`, `kiosk.html`)
 - Mapped current entities, workflow, and domain boundaries
 - Created `DOMAIN_MAP.md`
 - Created `REFACTOR_STRUCTURE.md`
@@ -188,8 +188,8 @@ In progress.
 
 ## Important Current Truths
 - Live project files currently appear to be in `~/Work/Airboss`
-- AirBoss is now a git repo with checkpoint commits
-- AirBoss is still running as single-file apps (`index.html` and `kiosk.html`)
+- GroundCore is now a git repo with checkpoint commits
+- GroundCore is still running as single-file apps (`index.html` and `kiosk.html`)
 - New scaffold files exist, but are only partially wired into the app
 - Canonical order statuses for the refactor are now defined as:
   - `pending`
@@ -232,7 +232,7 @@ In progress.
 - Use in-file selector helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderSelectors.js`
 - Use in-file transition helpers as an intermediate bridge before fully routing views to `src/domain/orders/orderService.js`
 - Use in-file record helpers as an intermediate bridge before fully routing writes through customer/ticket/message services
-- Keep AirBoss local-first for testing until workflow quality is proven
+- Keep GroundCore local-first for testing until workflow quality is proven
 - Use in-file sync adapters as an intermediate bridge before fully routing sync behavior through `src/data/sync/*`
 - Use a browser runtime bridge to start consuming `src/` architecture concepts without adding a build system yet
 - Keep kiosk and ops aligned so kiosk does not become the schema-drift side door into the system

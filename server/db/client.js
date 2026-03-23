@@ -7,7 +7,7 @@ let pool = null;
 export function getPool() {
   if (!env.databaseUrl) {
     throw new AppError('DATABASE_URL is not configured', 503, {
-      hint: 'Set DATABASE_URL to enable shared AirBoss persistence.',
+      hint: 'Set DATABASE_URL to enable shared GroundCore persistence.',
     });
   }
 

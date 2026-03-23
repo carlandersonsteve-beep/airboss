@@ -1,7 +1,7 @@
-# AirBoss Domain Map
+# GroundCore Domain Map
 
 ## Purpose
-This document maps the current AirBoss data model, workflow, and key architectural boundaries based on the current `index.html` and `kiosk.html` implementation.
+This document maps the current GroundCore data model, workflow, and key architectural boundaries based on the current `index.html` and `kiosk.html` implementation.
 
 The goal is not to describe the ideal future state. The goal is to make the current system legible so refactoring can happen without breaking core operations.
 

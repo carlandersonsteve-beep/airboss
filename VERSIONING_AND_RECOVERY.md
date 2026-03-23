@@ -1,7 +1,7 @@
-# AirBoss Versioning and Recovery
+# GroundCore Versioning and Recovery
 
 ## Why this exists
-AirBoss is entering a refactor phase. That means structure will improve, but risk also goes up.
+GroundCore is entering a refactor phase. That means structure will improve, but risk also goes up.
 
 If something gets weird, we need a simple way to answer:
 - what changed?
@@ -98,7 +98,7 @@ At each milestone, ensure there is one known-good version to fall back to.
 ---
 
 ## Current Reality
-- AirBoss is not currently confirmed as a git repo in `~/Work/Airboss`
+- GroundCore is not currently confirmed as a git repo in `~/Work/Airboss`
 - Refactor scaffold has started
 - Existing live app still depends on legacy single-file logic
 - New architecture files are present but not yet wired into production behavior
@@ -106,6 +106,6 @@ At each milestone, ensure there is one known-good version to fall back to.
 ---
 
 ## Best Next Practical Move
-If Steve wants strong rollback safety, initialize git in the AirBoss project and make small checkpoint commits throughout the refactor.
+If Steve wants strong rollback safety, initialize git in the GroundCore project and make small checkpoint commits throughout the refactor.
 
 That is the cleanest answer to: “what version are we on if shit gets fucked up?”

@@ -27,7 +27,7 @@ const router = createRouter();
 
 router.get('/health', async () => ({
   ok: true,
-  service: 'airboss-backend',
+  service: 'groundcore-backend',
   mode: env.databaseUrl ? 'postgres-configured' : 'local-file-store',
   databaseUrlConfigured: Boolean(env.databaseUrl),
 }));
@@ -198,7 +198,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(env.port, () => {
-  console.log(`AirBoss backend listening on http://localhost:${env.port}`);
+  console.log(`GroundCore backend listening on http://localhost:${env.port}`);
 });
 
 function requireSession(req, allowedRoles = []) {

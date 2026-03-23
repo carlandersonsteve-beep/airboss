@@ -1,6 +1,6 @@
-# AirBoss
+# GroundCore
 
-AirBoss is a standalone FBO operations system.
+GroundCore is a standalone FBO operations system.
 
 It is intended to manage:
 - aircraft arrivals
@@ -13,7 +13,7 @@ This is being developed as a real product, not just an internal tool.
 
 ## Local run
 
-AirBoss is currently a plain HTML front end served by a small Node backend.
+GroundCore is currently a plain HTML front end served by a small Node backend.
 That backend is the right integration point for shared persistence.
 
 1. Copy env template:
