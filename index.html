@@ -125,8 +125,8 @@
     <script src="src/app/browserRuntime.js"></script>
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260322g"></script>
-    <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260322g"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260322g"></script>
+    <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260323a"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260323a"></script>
     <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260322g"></script>
     <script type="text/babel">
@@ -251,6 +251,13 @@
                 });
             },
 
+            postGeneralMessage(payload) {
+                return this.request('/messages', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+            },
+
             createAlert(alert) {
                 return this.request('/alerts', {
                     method: 'POST',
@@ -351,8 +358,52 @@
             const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
             const [orderThreadReadState, setOrderThreadReadState] = useState(() => Storage.get('fbo_order_thread_reads') || { RAMP: {}, OFFICE: {} });
             const [backendMode, setBackendMode] = useState('unknown');
+            const pendingWritesRef = React.useRef(0);
             const markBackendWriteSuccess = () => setBackendMode((current) => current === 'local' ? 'local' : 'postgres');
             const currentRole = session?.role || 'OFFICE';
+
+            // === HORSE NOTIFICATION SOUND ===
+            const horseAudioRef = React.useRef(null);
+
+            useEffect(() => {
+                const audio = new Audio('assets/horse.mp3');
+                audio.preload = 'auto';
+                horseAudioRef.current = audio;
+                return () => {
+                    if (horseAudioRef.current) {
+                        horseAudioRef.current.pause();
+                        horseAudioRef.current = null;
+                    }
+                };
+            }, []);
+
+            const playHorse = () => {
+                try {
+                    const audio = horseAudioRef.current;
+                    if (!audio) return;
+                    audio.currentTime = 0;
+                    const playPromise = audio.play();
+                    if (playPromise && typeof playPromise.catch === 'function') {
+                        playPromise.catch((e) => console.log('Horse failed:', e));
+                    }
+                } catch (e) {
+                    console.log('Horse failed:', e);
+                }
+            };
+
+            const prevMessageCountRef = React.useRef(null);
+            useEffect(() => {
+                if (prevMessageCountRef.current === null) {
+                    prevMessageCountRef.current = messages.length;
+                    return;
+                }
+                const incomingMessages = messages.slice(prevMessageCountRef.current);
+                const hasNewFromOther = incomingMessages.some(m => m.sender !== currentRole);
+                if (hasNewFromOther) playHorse();
+                prevMessageCountRef.current = messages.length;
+            }, [messages.length]);
+            // === HORSE NOTIFICATION END ===
+
             // === MESSAGING FEATURE END ===
 
             // Load data on mount
@@ -372,6 +423,7 @@
                 let cancelled = false;
 
                 const loadBootstrap = async () => {
+                    if (pendingWritesRef.current > 0) return;
                     try {
                         const data = await api.bootstrap();
                         if (cancelled) return;
@@ -440,6 +492,18 @@
                         markBackendWriteSuccess();
                     } catch (error) {
                         console.log('Order message backend sync failed, kept locally', error.message);
+                    }
+                } else {
+                    // General chat message — persist to server so bootstrap doesn't wipe it
+                    try {
+                        const response = await api.postGeneralMessage({
+                            ...messageRecord,
+                            senderRole: sender,
+                        });
+                        setMessages(prev => prev.map(m => m.id === messageRecord.id ? response.item : m));
+                        markBackendWriteSuccess();
+                    } catch (error) {
+                        console.log('General message backend sync failed, kept locally', error.message);
                     }
                 }
                 return messageRecord;
@@ -571,6 +635,7 @@
 
             const transitionOrder = async (orderId, transitionFn) => {
                 let updatedOrder = null;
+                pendingWritesRef.current += 1;
                 setOrders(currentOrders => currentOrders.map(o => {
                     if (o.id !== orderId) return o;
                     updatedOrder = transitionFn(o);
@@ -585,7 +650,11 @@
                         markBackendWriteSuccess();
                     } catch (error) {
                         console.log('Order backend sync failed, kept locally', error.message);
+                    } finally {
+                        pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
                     }
+                } else {
+                    pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
                 }
             };
 
@@ -1024,7 +1093,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         {/* === MESSAGING FEATURE END === */}
                         {/* === CALENDAR FEATURE START === */}
                         {view === 'calendar' && (
-                            <CalendarView orders={orders} />
+                            <CalendarView orders={orders} customers={customers} />
                         )}
                         {/* === CALENDAR FEATURE END === */}
                         </div>
@@ -1155,7 +1224,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         // === MESSAGING FEATURE END ===
 
         // === CALENDAR FEATURE START ===
-        function CalendarView({ orders }) {
+        function CalendarView({ orders, customers }) {
             const [calView, setCalView] = useState('month'); // 'month', 'week', 'day'
             const [current, setCurrent] = useState(new Date());
 
@@ -1181,11 +1250,18 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
             };
 
             // Build events from orders: arrival = createdAt, departure = departureDate
+            const customerMap = React.useMemo(() => {
+                const map = {};
+                (customers || []).forEach(c => { map[c.id] = c; });
+                return map;
+            }, [customers]);
+
             const getEvents = (date) => {
                 const events = [];
                 orders.forEach(o => {
-                    const tail = o.tailNumber || o.aircraft || '?';
-                    const customer = o.customerName || o.pilotName || '';
+                    const cust = customerMap[o.customerId] || {};
+                    const tail = o.tailNumber || o.aircraft || cust.tailNumber || '?';
+                    const customer = o.customerName || o.pilotName || cust.pilotName || cust.company || '';
                     if (o.createdAt && isSameDay(o.createdAt, date)) {
                         events.push({ type: 'arrival', tail, customer, time: new Date(o.createdAt), order: o });
                     }
