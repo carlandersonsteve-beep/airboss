@@ -11,6 +11,10 @@ window.AirBossComponents.OrderCard = function OrderCard({
   markOrderThreadRead,
   startOrderService,
   markOrderReadyForFrontDesk,
+  onServiceStarted,
+  onOpenServicePanel,
+  compact = false,
+  suppressActions = false,
 }) {
   const { useState } = React;
   const deps = window.AirBossComponentBridge.requireDeps(
@@ -97,9 +101,14 @@ window.AirBossComponents.OrderCard = function OrderCard({
     });
   };
 
+  const startServiceFlow = () => {
+    startOrderService(order.id);
+    onServiceStarted && onServiceStarted(order.id);
+  };
+
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-      <div className="flex justify-between items-start mb-3">
+    <div className={`border rounded-lg transition ${compact ? 'p-3 bg-white/90 border-gray-200' : 'p-4 hover:shadow-md border-gray-200 bg-white'}`}>
+      <div className="flex justify-between items-start mb-3 gap-3">
         <div>
           <div className="font-bold text-lg mustang-red-text">{customer?.tailNumber || 'Unknown'}</div>
           <div className="text-gray-600">{customer?.aircraftType || 'Unknown Type'}</div>
@@ -107,7 +116,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[order.status]}`}>
-            {order.status.replace('-', ' ').toUpperCase()}
+            {String(order.status).replace(/[-_]/g, ' ').toUpperCase()}
           </span>
           <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleTimeString()}</div>
         </div>
@@ -124,9 +133,11 @@ window.AirBossComponents.OrderCard = function OrderCard({
               </div>
               <div className="text-2xl font-bold text-gray-700">{order.fuelType}</div>
             </div>
-            <div className="mt-2 text-sm text-blue-900">
-              Actual gallons pumped are entered when Ramp completes the order and hands it to Front Desk.
-            </div>
+            {!compact && (
+              <div className="mt-2 text-sm text-blue-900">
+                Actual gallons pumped are entered when Ramp completes the order and hands it to Front Desk.
+              </div>
+            )}
           </div>
         )}
         {order.hangar && (
@@ -141,12 +152,12 @@ window.AirBossComponents.OrderCard = function OrderCard({
         )}
       </div>
 
-      {order.notes && (
+      {order.notes && !compact && (
         <div className="text-sm text-gray-600 mb-3 bg-blue-50 p-2 rounded">
           <span className="font-medium">Notes:</span> {order.notes}
         </div>
       )}
-      {order.departureDate && (
+      {order.departureDate && !compact && (
         <div className="text-sm text-gray-600 mb-3 bg-green-50 border border-green-200 p-2 rounded">
           <span className="font-medium">✈️ Departure:</span>{' '}
           {new Date(order.departureDate + 'T12:00:00').toLocaleDateString('en-US', {
@@ -175,7 +186,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
         </div>
       )}
 
-      {isInProgressStatus(order.status) && (
+      {isInProgressStatus(order.status) && !compact && (
         <OrderMessageThread
           order={order}
           messages={messages}
@@ -188,7 +199,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
         />
       )}
 
-      {isInProgressStatus(order.status) && (
+      {isInProgressStatus(order.status) && !compact && (
         <div className="mb-3 flex flex-wrap gap-2">
           <button
             onClick={() => createAlert('customer_waiting', 'Customer waiting at aircraft / needs front desk attention')}
@@ -211,32 +222,48 @@ window.AirBossComponents.OrderCard = function OrderCard({
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
-        {isPendingStatus(order.status) && (
-          <button
-            onClick={() => order.fuelType ? setShowFuelVerify(true) : startOrderService(order.id)}
-            className="mustang-red mustang-red-hover text-white px-4 py-2 rounded text-sm font-medium transition"
-          >
-            ▶️ Start Service
-          </button>
-        )}
-        {isInProgressStatus(order.status) && (
-          <button
-            onClick={() => setShowCompleteModal(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold transition flex-1"
-          >
-            ✅ COMPLETE - Send to Front Desk
-          </button>
-        )}
-        {isInProgressStatus(order.status) && !order.fuelType && (
-          <button
-            onClick={() => markOrderReadyForFrontDesk(order.id)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition"
-          >
-            ✅ Complete (No Fuel)
-          </button>
-        )}
-      </div>
+      {!suppressActions && (
+        <div className="flex gap-2 flex-wrap">
+          {isPendingStatus(order.status) && (
+            <button
+              onClick={() => order.fuelType ? setShowFuelVerify(true) : startServiceFlow()}
+              className="mustang-red mustang-red-hover text-white px-4 py-2 rounded text-sm font-medium transition"
+            >
+              ▶️ Start Service
+            </button>
+          )}
+          {isInProgressStatus(order.status) && onOpenServicePanel && compact && (
+            <button
+              onClick={() => onOpenServicePanel(order.id)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+            >
+              Open Service Panel
+            </button>
+          )}
+          {isInProgressStatus(order.status) && !compact && (
+            <button
+              onClick={() => setShowCompleteModal(true)}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold transition flex-1"
+            >
+              ✅ COMPLETE - Send to Front Desk
+            </button>
+          )}
+          {isInProgressStatus(order.status) && !order.fuelType && !compact && (
+            <button
+              onClick={() => markOrderReadyForFrontDesk(order.id)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition"
+            >
+              ✅ Complete (No Fuel)
+            </button>
+          )}
+        </div>
+      )}
+
+      {suppressActions && isPendingStatus(order.status) && (
+        <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-dashed border-gray-300">
+          Finish the active aircraft handoff or back out of service mode to start another aircraft.
+        </div>
+      )}
 
       {showFuelVerify && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
@@ -268,7 +295,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
                     if (e.key === 'Enter') {
                       if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
                         setShowFuelVerify(false);
-                        startOrderService(order.id);
+                        startServiceFlow();
                       } else {
                         setFuelVerifyError(true);
                         setFuelTypeInput('');
@@ -293,7 +320,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
                   onClick={() => {
                     if (fuelTypeInput.trim().toUpperCase() === order.fuelType.trim().toUpperCase()) {
                       setShowFuelVerify(false);
-                      startOrderService(order.id);
+                      startServiceFlow();
                     } else {
                       setFuelVerifyError(true);
                       setFuelTypeInput('');

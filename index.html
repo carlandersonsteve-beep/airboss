@@ -126,8 +126,9 @@
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260323a"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260323a"></script>
-    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260322g"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260327-service-panel"></script>
+    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260327-service-panel"></script>
+    <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260327-service-panel"></script>
     <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260322g"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
@@ -1146,7 +1147,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         }
 
         const RampView = getExtractedComponent('RampView');
-        const hasPublishedAirBossDeps = () => Boolean(window.AirBossDeps && window.AirBossDeps.OrderCard && window.AirBossDeps.CompletionModal);
+        const hasPublishedAirBossDeps = () => Boolean(window.AirBossDeps && window.AirBossDeps.OrderCard && window.AirBossDeps.CompletionModal && window.AirBossDeps.ServicePanel);
 
         // === MESSAGING FEATURE START ===
         const OrderMessageThread = getExtractedComponent('OrderMessageThread');
@@ -1457,6 +1458,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         const CompletionModal = getExtractedComponent('CompletionModal');
 
         const OrderCard = getExtractedComponent('OrderCard');
+        const ServicePanel = getExtractedComponent('ServicePanel');
 
         const publishAirBossDeps = () => {
             window.AirBossDeps = {
@@ -1474,6 +1476,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 OrderMessageThread,
                 CompletionModal,
                 OrderCard,
+                ServicePanel,
             };
         };
 
@@ -2071,6 +2074,17 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
         // Render the app
         ReactDOM.render(<FBOSystem />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+ody>
+</html>
+/script>
+</body>
+</html>
+ody>
+</html>
+('root'));
     </script>
 </body>
 </html>
