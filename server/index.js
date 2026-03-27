@@ -58,8 +58,8 @@ router.get('/orders', async ({ req }) => {
   };
 });
 
-router.get('/checkin/lookup', async ({ url }) => {
-  const tail = url.searchParams.get('tail') || '';
+router.get('/checkin/lookup', async ({ requestUrl }) => {
+  const tail = requestUrl.searchParams.get('tail') || '';
   const normalizedTail = normalizeTailNumber(tail);
   const match = await findReturningCheckInMatch(normalizedTail);
 

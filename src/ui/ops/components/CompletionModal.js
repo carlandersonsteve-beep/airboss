@@ -34,7 +34,7 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
                   <div className="text-sm font-bold text-amber-900">⚠️ Fuel variance warning</div>
                   <div className="text-sm text-amber-800 mt-1">
-                    Requested: {requestedFuel} gal · Actual: {actualFuel} gal · Difference: {fuelVariance > 0 ? '+' : ''}{fuelVariance} gal
+                    Requested: {requestedFuel} gal · Actual: {actualFuel} gal · Difference: {fuelVariance > 0 ? '+' : ''}{fuelVariance.toFixed(1)} gal
                   </div>
                   <div className="text-xs text-amber-700 mt-1">
                     Double-check the gallons and leave a note for Front Desk if this variance is intentional.
@@ -75,6 +75,13 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
             className="flex-1 bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold transition"
           >
             Save & Notify Front Desk
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+y Front Desk
           </button>
         </div>
       </div>

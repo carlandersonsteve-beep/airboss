@@ -159,7 +159,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
                 ) : 'No departure set'}
               </div>
               {order.purpose && (
-                <div className="text-sm text-gray-700 mt-3"><span className="font-semibold">Purpose:</span> {order.purpose}</div>
+                <div className="text-sm text-gray-700 mt-3"><span className="font-semibold">Purpose:</span> {formatLabel(order.purpose)}</div>
               )}
             </div>
           </div>
@@ -230,6 +230,13 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
           order={order}
           customer={customer}
           onClose={() => setShowCompleteModal(false)}
+          onConfirm={handleSaveAndNotify}
+        />
+      )}
+    </>
+  );
+};
+Close={() => setShowCompleteModal(false)}
           onConfirm={handleSaveAndNotify}
         />
       )}
