@@ -108,11 +108,11 @@
     <script src="src/app/browserRuntime.js"></script>
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260322g"></script>
-    <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260327g"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260327g"></script>
-    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260327g"></script>
-    <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260327g"></script>
-    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260327g"></script>
+    <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260327i"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260327i"></script>
+    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260327i"></script>
+    <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260327i"></script>
+    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260327i"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -639,26 +639,29 @@
                         const response = await api.updateOrder(orderId, updatedOrder);
                         setOrders(prev => prev.map(o => o.id === orderId ? response.item : o));
                         markBackendWriteSuccess();
+                        return response.item;
                     } catch (error) {
                         console.log('Order backend sync failed, kept locally', error.message);
+                        return updatedOrder;
                     } finally {
                         pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
                     }
                 } else {
                     pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
+                    return null;
                 }
             };
 
             const startOrderService = (orderId) => {
-                transitionOrder(orderId, (order) => runtime.orderService.startService(order));
+                return transitionOrder(orderId, (order) => runtime.orderService.startService(order));
             };
 
             const markOrderReadyForFrontDesk = (orderId, extraFields = {}) => {
-                transitionOrder(orderId, (order) => runtime.orderService.completeService(order, extraFields));
+                return transitionOrder(orderId, (order) => runtime.orderService.completeService(order, extraFields));
             };
 
             const closeOrder = (orderId) => {
-                transitionOrder(orderId, (order) => runtime.orderService.closeOrder(order));
+                return transitionOrder(orderId, (order) => runtime.orderService.closeOrder(order));
             };
 
             const addOrder = async (order) => {

@@ -30,7 +30,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
   const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
   const requestedFuel = order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
 
-  const handleSaveAndNotify = (actualFuel, completionNotes) => {
+  const handleSaveAndNotify = async (actualFuel, completionNotes) => {
     const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
       ? (order.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null)
       : parseFloat(actualFuel);
@@ -55,7 +55,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
     }
 
     try {
-      markOrderReadyForFrontDesk(order.id, {
+      await markOrderReadyForFrontDesk(order.id, {
         fuelActualGallons: finalActualFuel,
         fuelQuantity: finalActualFuel,
         completionNotes: completionNotes || '',
