@@ -52,7 +52,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const handleSaveAndNotify = (actualFuel, completionNotes) => {
     const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
       ? (order.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null)
-      : parseInt(actualFuel, 10);
+      : parseFloat(actualFuel);
 
     const finalActualFuel = Number.isNaN(parsedActualFuel) ? null : parsedActualFuel;
 
