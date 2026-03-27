@@ -6,8 +6,9 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
   const [actualFuel, setActualFuel] = useState(order.fuelActualGallons ?? '');
   const [completionNotes, setCompletionNotes] = useState(order.completionNotes || '');
   const actualFuelNumber = actualFuel === '' ? null : Number(actualFuel);
-  const hasFuelVariance = actualFuel !== '' && !Number.isNaN(actualFuelNumber) && requestedFuel !== actualFuelNumber;
-  const fuelVariance = hasFuelVariance ? actualFuelNumber - requestedFuel : 0;
+  const rawFuelVariance = actualFuel !== '' && !Number.isNaN(actualFuelNumber) ? actualFuelNumber - requestedFuel : 0;
+  const fuelVariance = Number(rawFuelVariance.toFixed(1));
+  const hasFuelVariance = actualFuel !== '' && !Number.isNaN(actualFuelNumber) && Math.abs(fuelVariance) > 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -75,13 +76,6 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
             className="flex-1 bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold transition"
           >
             Save & Notify Front Desk
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-y Front Desk
           </button>
         </div>
       </div>

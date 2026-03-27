@@ -12,6 +12,9 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
   onBack,
 }) {
   const { useState } = React;
+  const formatLabel = (value) => String(value || '')
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
   const deps = window.AirBossComponentBridge.requireDeps(
     'ServicePanel',
     window.AirBossDeps || {},
