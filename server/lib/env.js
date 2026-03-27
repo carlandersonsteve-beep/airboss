@@ -2,6 +2,7 @@ const defaultSessionSecret = 'groundcore-dev-session-secret-change-me';
 
 export const env = {
   port: Number(process.env.PORT || 8787),
+  host: process.env.HOST || '127.0.0.1',
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || defaultSessionSecret,
 };

@@ -265,8 +265,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(env.port, '127.0.0.1', () => {
-  console.log(`GroundCore backend listening on http://localhost:${env.port}`);
+server.listen(env.port, env.host, () => {
+  const displayHost = env.host === '0.0.0.0' ? 'localhost' : env.host;
+  console.log(`GroundCore backend listening on http://${displayHost}:${env.port}`);
 });
 
 function requireSession(req, allowedRoles = []) {

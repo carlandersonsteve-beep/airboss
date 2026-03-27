@@ -5,11 +5,18 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PID_FILE="$ROOT_DIR/.groundcore-server.pid"
 LOG_FILE="$ROOT_DIR/.groundcore-server.log"
 PORT_VALUE="${PORT:-}"
+HOST_VALUE="${HOST:-}"
 
-if [[ -f "$ROOT_DIR/.env" ]] && [[ -z "$PORT_VALUE" ]]; then
-  PORT_VALUE="$(grep '^PORT=' "$ROOT_DIR/.env" | tail -n 1 | cut -d= -f2- || true)"
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  if [[ -z "$PORT_VALUE" ]]; then
+    PORT_VALUE="$(grep '^PORT=' "$ROOT_DIR/.env" | tail -n 1 | cut -d= -f2- || true)"
+  fi
+  if [[ -z "$HOST_VALUE" ]]; then
+    HOST_VALUE="$(grep '^HOST=' "$ROOT_DIR/.env" | tail -n 1 | cut -d= -f2- || true)"
+  fi
 fi
 PORT_VALUE="${PORT_VALUE:-8792}"
+HOST_VALUE="${HOST_VALUE:-127.0.0.1}"
 
 is_running() {
   [[ -f "$PID_FILE" ]] || return 1
