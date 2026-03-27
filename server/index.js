@@ -32,7 +32,12 @@ router.get('/health', async () => ({
   databaseUrlConfigured: Boolean(env.databaseUrl),
 }));
 
-router.get('/bootstrap', async () => bootstrapPayload());
+router.get('/bootstrap', async ({ req }) => {
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return bootstrapPayload();
+});
 
 router.get('/schema.sql', async () => ({ sql: schemaSql }));
 
@@ -100,6 +105,21 @@ router.post('/orders', async ({ body }) => ({
   ok: true,
   item: await createOrder(body || {}),
 }));
+
+router.post('/messages', async ({ body, req }) => {
+  // Try session auth but allow fallback for local mode
+  let session = null;
+  try { session = requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']); } catch (_) {}
+  if (!session && env.databaseUrl) throw new AppError('Authentication required', 401);
+  return {
+    ok: true,
+    item: await createOrderMessage({
+      ...(body || {}),
+      id: body?.id || crypto.randomUUID(),
+      orderId: null,
+    }),
+  };
+});
 
 router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
   requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
@@ -197,7 +217,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(env.port, () => {
+server.listen(env.port, '127.0.0.1', () => {
   console.log(`GroundCore backend listening on http://localhost:${env.port}`);
 });
 
@@ -222,7 +242,7 @@ function sendJson(res, statusCode, payload) {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   });
   res.end(JSON.stringify(payload, null, 2));
 }

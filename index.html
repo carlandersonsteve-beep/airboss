@@ -210,13 +210,14 @@
             async request(path, options = {}) {
                 const session = Storage.get(SESSION_KEY);
                 const token = session?.token;
+                const mergedHeaders = {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    ...(options.headers || {}),
+                };
                 const response = await fetch(`${API_BASE_URL}${path}`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        ...(options.headers || {}),
-                    },
                     ...options,
+                    headers: mergedHeaders,
                 });
 
                 const payload = await response.json();
@@ -406,7 +407,7 @@
 
             // === MESSAGING FEATURE END ===
 
-            // Load data on mount
+            // Load local cache immediately; sync bootstrap only when signed in
             useEffect(() => {
                 const savedCustomers = Storage.get('fbo_customers') || [];
                 const savedOrders = Storage.get('fbo_orders') || [];
@@ -419,10 +420,16 @@
                 setTickets(savedTickets);
                 setMessages(savedMessages);
                 setOrderThreadReadState(savedReads);
+            }, []);
 
+            useEffect(() => {
                 let cancelled = false;
 
                 const loadBootstrap = async () => {
+                    if (!session?.token) {
+                        setBackendMode('signin-required');
+                        return;
+                    }
                     if (pendingWritesRef.current > 0) return;
                     try {
                         const data = await api.bootstrap();
@@ -441,13 +448,13 @@
                 };
 
                 loadBootstrap();
-                const intervalId = window.setInterval(loadBootstrap, 2000);
+                const intervalId = session?.token ? window.setInterval(loadBootstrap, 2000) : null;
 
                 return () => {
                     cancelled = true;
-                    window.clearInterval(intervalId);
+                    if (intervalId) window.clearInterval(intervalId);
                 };
-            }, []);
+            }, [session?.token]);
 
             // Save data when it changes
             useEffect(() => {
