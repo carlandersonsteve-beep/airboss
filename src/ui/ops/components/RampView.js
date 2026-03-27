@@ -72,15 +72,19 @@ window.AirBossComponents.RampView = function RampView({
   const hasFocusedServiceMode = Boolean(activeServiceOrder && activeServiceIsInProgress && isServicePanelOpen);
 
   const scrollToServicePanel = () => {
+    const doScroll = (behavior = 'smooth') => {
+      if (servicePanelRef.current) {
+        const top = window.pageYOffset + servicePanelRef.current.getBoundingClientRect().top - 16;
+        window.scrollTo({ top: Math.max(0, top), behavior });
+      } else {
+        window.scrollTo({ top: 0, behavior });
+      }
+    };
+
     window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (servicePanelRef.current) {
-          servicePanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          window.scrollBy(0, -12);
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      });
+      doScroll('smooth');
+      window.setTimeout(() => doScroll('auto'), 150);
+      window.setTimeout(() => doScroll('auto'), 350);
     });
   };
 
