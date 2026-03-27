@@ -67,7 +67,8 @@ window.AirBossComponents.RampView = function RampView({
   const activeServiceCustomer = activeServiceOrder
     ? customers.find(customer => customer.id === activeServiceOrder.customerId)
     : null;
-  const hasFocusedServiceMode = Boolean(activeServiceOrder && isServicePanelOpen);
+  const activeServiceIsInProgress = Boolean(activeServiceOrder && String(activeServiceOrder.status).replace('-', '_') === 'in_progress');
+  const hasFocusedServiceMode = Boolean(activeServiceOrder && activeServiceIsInProgress && isServicePanelOpen);
 
   const openServicePanel = (orderId) => {
     setActiveServiceOrderId(orderId);
