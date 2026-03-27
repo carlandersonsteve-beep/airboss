@@ -18,6 +18,9 @@ const MIME_TYPES = {
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.ico': 'image/x-icon',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
 };
 
 export function tryServeStatic(requestUrl, res) {

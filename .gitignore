@@ -8,3 +8,4 @@ server/data/
 *.swp
 .env
 .env.*
+.groundcore-server.pid

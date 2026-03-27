@@ -39,23 +39,43 @@ router.get('/bootstrap', async ({ req }) => {
   return bootstrapPayload();
 });
 
-router.get('/schema.sql', async () => ({ sql: schemaSql }));
+router.get('/schema.sql', async ({ req }) => {
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN']);
+  }
+  return { sql: schemaSql };
+});
 
-router.get('/orders', async () => ({
-  ok: true,
-  items: await listOrders(),
-}));
+router.get('/orders', async ({ req }) => {
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return {
+    ok: true,
+    items: await listOrders(),
+  };
+});
 
-router.get('/alerts', async () => ({
-  ok: true,
-  items: await listAlerts(),
-}));
+router.get('/alerts', async ({ req }) => {
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return {
+    ok: true,
+    items: await listAlerts(),
+  };
+});
 
-router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params }) => ({
-  ok: true,
-  orderId: params[0],
-  items: await listOrderMessages(params[0]),
-}));
+router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params, req }) => {
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return {
+    ok: true,
+    orderId: params[0],
+    items: await listOrderMessages(params[0]),
+  };
+});
 
 router.post('/login', async ({ body }) => {
   const user = await authenticateUser({
@@ -96,15 +116,27 @@ router.post('/change-password', async ({ body }) => {
   };
 });
 
-router.post('/customers', async ({ body }) => ({
-  ok: true,
-  item: await createCustomer(body || {}),
-}));
+router.post('/customers', async ({ body, req }) => {
+  const payload = body || {};
+  if (env.databaseUrl && payload.source !== 'kiosk') {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return {
+    ok: true,
+    item: await createCustomer(payload),
+  };
+});
 
-router.post('/orders', async ({ body }) => ({
-  ok: true,
-  item: await createOrder(body || {}),
-}));
+router.post('/orders', async ({ body, req }) => {
+  const payload = body || {};
+  if (env.databaseUrl && payload.source !== 'kiosk-checkin') {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
+  return {
+    ok: true,
+    item: await createOrder(payload),
+  };
+});
 
 router.post('/messages', async ({ body, req }) => {
   // Try session auth but allow fallback for local mode
