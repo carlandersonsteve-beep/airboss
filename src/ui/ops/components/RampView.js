@@ -132,6 +132,12 @@ window.AirBossComponents.RampView = function RampView({
         </div>
       </div>
 
+      {isServicePanelOpen && activeServiceOrder && !activeServiceIsInProgress && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+          Service is starting for this aircraft… loading focused service panel.
+        </div>
+      )}
+
       {hasFocusedServiceMode && (
         <div className="mb-6">
           <ServicePanel
