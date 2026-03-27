@@ -150,7 +150,7 @@
 
     <script src="src/app/browserRuntime.js?v=20260322f"></script>
     <script type="text/babel">
-        const { useState } = React;
+        const { useEffect, useMemo, useState } = React;
         const runtime = window.AirBossRuntime;
         const API_BASE_URL = `${window.location.protocol === 'file:' ? 'http://localhost:8787' : window.location.origin}`;
 
@@ -236,6 +236,10 @@
                     body: JSON.stringify(order),
                 });
             },
+
+            lookupCheckInByTail(tail) {
+                return this.request(`/checkin/lookup?tail=${encodeURIComponent(tail)}`);
+            },
         };
 
         const appendStoredRecord = (key, record) => {
@@ -261,9 +265,10 @@
             tailNumber: formData.tailNumber,
             aircraftType: formData.aircraftType,
             aircraft: formData.aircraftType,
+            status: 'pending',
             fuelType: formData.fuelType || '',
-            fuelQuantity: parseInt(formData.fuelQuantity) || 0,
-            fuelRequestedGallons: parseInt(formData.fuelQuantity) || 0,
+            fuelQuantity: parseFloat(formData.fuelQuantity) || 0,
+            fuelRequestedGallons: parseFloat(formData.fuelQuantity) || 0,
             hangarOvernight: formData.hangarOvernight,
             services: formData.services,
             arrivalTime: new Date().toISOString(),
@@ -281,10 +286,32 @@
             signupDate: new Date().toISOString()
         });
 
+        const normalizeTailNumber = (value) => {
+            const raw = String(value || '').trim().toUpperCase();
+            if (!raw) return '';
+
+            const compact = raw.replace(/[^A-Z0-9]/g, '');
+            if (!compact) return '';
+            if (/^N[A-Z0-9]+$/.test(compact)) return compact;
+            if (/^[0-9][A-Z0-9]*$/.test(compact)) return `N${compact}`;
+            return compact;
+        };
+
+        const createEmptyLookupState = () => ({
+            searched: false,
+            loading: false,
+            error: '',
+            matched: false,
+            match: null,
+            normalizedTail: '',
+        });
+
         function CheckInKiosk() {
-            const [step, setStep] = useState(0); // 0=welcome, 1=aircraft, 2=pilot, 3=services, 4=confirm, 5=success
+            const [step, setStep] = useState(0); // 0=welcome, 1=tail lookup, 2=returning confirmation, 3=aircraft/contact, 4=services, 5=confirm, 6=success
             const [backendStatus, setBackendStatus] = useState('idle');
             const [submitError, setSubmitError] = useState('');
+            const [lookupState, setLookupState] = useState(createEmptyLookupState());
+            const [checkInMode, setCheckInMode] = useState('new');
             const [formData, setFormData] = useState({
                 tailNumber: '',
                 aircraftType: '',
@@ -301,6 +328,20 @@
                 departureDate: '',
                 departureTime: ''
             });
+
+            const matchedCustomer = lookupState.match?.customer || null;
+            const returningSummary = useMemo(() => {
+                if (!matchedCustomer) return null;
+                return [matchedCustomer.pilotName, matchedCustomer.company, matchedCustomer.email, matchedCustomer.phone]
+                    .filter(Boolean)
+                    .join(' • ');
+            }, [matchedCustomer]);
+
+            useEffect(() => {
+                if (!submitError) return undefined;
+                const timer = setTimeout(() => setSubmitError(''), 4000);
+                return () => clearTimeout(timer);
+            }, [submitError]);
 
             const availableServices = [
                 { id: 'lav', label: '🚽 Lavatory Service', icon: '🚽' },
@@ -331,6 +372,91 @@
             const handlePhoneChange = (e) => {
                 const formatted = formatPhoneNumber(e.target.value);
                 setFormData({...formData, phone: formatted});
+            };
+
+            const resetLookup = () => {
+                setLookupState(createEmptyLookupState());
+                setCheckInMode('new');
+            };
+
+            const applyMatchedCustomerToForm = (customer) => {
+                if (!customer) return;
+                setFormData((prev) => ({
+                    ...prev,
+                    tailNumber: normalizeTailNumber(customer.tailNumber) || prev.tailNumber,
+                    aircraftType: customer.aircraftType || prev.aircraftType,
+                    pilotName: customer.pilotName || prev.pilotName,
+                    email: customer.email || prev.email,
+                    phone: customer.phone || prev.phone,
+                    company: customer.company || prev.company,
+                }));
+            };
+
+            const handleTailChange = (value) => {
+                const normalized = normalizeTailNumber(value);
+                setFormData((prev) => ({ ...prev, tailNumber: normalized }));
+                setLookupState((prev) => ({ ...createEmptyLookupState(), normalizedTail: normalized }));
+                setCheckInMode('new');
+            };
+
+            const handleTailLookup = async () => {
+                const normalizedTail = normalizeTailNumber(formData.tailNumber);
+                if (!normalizedTail) {
+                    setLookupState({ ...createEmptyLookupState(), error: 'Enter a tail number to continue.', normalizedTail });
+                    return;
+                }
+
+                setFormData((prev) => ({ ...prev, tailNumber: normalizedTail }));
+                setLookupState({ searched: true, loading: true, error: '', matched: false, match: null, normalizedTail });
+
+                try {
+                    const payload = await api.lookupCheckInByTail(normalizedTail);
+                    const nextState = {
+                        searched: true,
+                        loading: false,
+                        error: '',
+                        matched: Boolean(payload.matched && payload.match),
+                        match: payload.match || null,
+                        normalizedTail: payload.normalizedTail || normalizedTail,
+                    };
+                    setLookupState(nextState);
+
+                    if (nextState.matched) {
+                        applyMatchedCustomerToForm(nextState.match.customer);
+                        setStep(2);
+                    } else {
+                        setCheckInMode('manual');
+                        setStep(3);
+                    }
+                } catch (error) {
+                    setLookupState({ searched: true, loading: false, error: error.message || 'Unable to look up that tail number right now.', matched: false, match: null, normalizedTail });
+                }
+            };
+
+            const handleReturningChoice = (mode) => {
+                setCheckInMode(mode);
+                if (matchedCustomer) {
+                    applyMatchedCustomerToForm(matchedCustomer);
+                }
+                if (mode === 'returning-confirmed') {
+                    setStep(4);
+                    return;
+                }
+                setStep(3);
+            };
+
+            const goToServicesStep = () => {
+                const nextTail = normalizeTailNumber(formData.tailNumber);
+                if (!nextTail) {
+                    setSubmitError('Add a valid tail number before continuing.');
+                    return;
+                }
+                if (!formData.aircraftType || !formData.pilotName || !formData.email || !formData.phone) {
+                    setSubmitError('Please complete the aircraft and contact information first.');
+                    return;
+                }
+                setFormData((prev) => ({ ...prev, tailNumber: nextTail }));
+                setStep(4);
             };
 
             const toggleService = (serviceId) => {
@@ -380,7 +506,7 @@
                     backendStatus
                 });
 
-                setStep(5);
+                setStep(6);
                 
                 // Auto-reset after 5 seconds
                 setTimeout(() => {
@@ -400,6 +526,7 @@
                         departureDate: '',
                         departureTime: ''
                     });
+                    resetLookup();
                     setStep(0);
                     setSubmitError('');
                 }, 5000);
@@ -419,121 +546,175 @@
                             Welcome! Please Check In
                         </h1>
                         <button className="btn btn-primary" style={{fontSize: '1.5rem', padding: '1.25rem 3rem'}}
-                                onClick={() => setStep(1)}>
+                                onClick={() => { resetLookup(); setStep(1); }}>
                             Start Check-In
                         </button>
                     </div>
                 );
             }
 
-            // STEP 1: Aircraft Info
+                        // STEP 1: Tail Lookup
             if (step === 1) {
                 return (
-                    <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '600px', width: '100%'}}>
+                    <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '620px', width: '100%'}}>
                         <div className="progress-bar">
                             <div className="progress-step active"></div>
                             <div className="progress-step"></div>
                             <div className="progress-step"></div>
                             <div className="progress-step"></div>
                         </div>
-                        <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem', color: '#1f2937'}}>
-                            ✈️ Aircraft Information
+                        <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#1f2937'}}>
+                            🔎 Start With Your Tail Number
                         </h2>
-                        <div style={{marginBottom: '1.5rem'}}>
+                        <p style={{color: '#6b7280', marginBottom: '1.5rem', lineHeight: 1.5}}>
+                            We’ll check for a previous visit so returning aircraft can skip repeating contact details.
+                        </p>
+                        <div style={{marginBottom: '1rem'}}>
                             <label style={{fontWeight: 600, color: '#374151'}}>Tail Number *</label>
-                            <input 
+                            <input
                                 className="input-field"
                                 placeholder="N12345"
                                 value={formData.tailNumber}
-                                onChange={(e) => setFormData({...formData, tailNumber: e.target.value.toUpperCase()})}
+                                onChange={(e) => handleTailChange(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleTailLookup();
+                                    }
+                                }}
                             />
                         </div>
-                        <div style={{marginBottom: '2rem'}}>
-                            <label style={{fontWeight: 600, color: '#374151'}}>Aircraft Type *</label>
-                            <input 
-                                className="input-field"
-                                placeholder="Citation CJ3"
-                                value={formData.aircraftType}
-                                onChange={(e) => setFormData({...formData, aircraftType: e.target.value})}
-                            />
-                        </div>
-                        <div style={{display: 'flex', gap: '1rem'}}>
+                        {lookupState.error && (
+                            <div style={{marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', background: '#fef2f2', color: '#b91c1c', fontWeight: 600}}>
+                                {lookupState.error}
+                            </div>
+                        )}
+                        {lookupState.searched && !lookupState.loading && !lookupState.matched && !lookupState.error && (
+                            <div style={{marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600}}>
+                                No previous match found for {lookupState.normalizedTail || formData.tailNumber}. We’ll continue with the full check-in form.
+                            </div>
+                        )}
+                        <div style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
                             <button className="btn btn-secondary" onClick={() => setStep(0)}>← Back</button>
-                            <button className="btn btn-primary" style={{flex: 1}}
-                                    disabled={!formData.tailNumber || !formData.aircraftType}
-                                    onClick={() => setStep(2)}>
-                                Next →
+                            <button className="btn btn-primary" style={{flex: 1}} disabled={!formData.tailNumber || lookupState.loading} onClick={handleTailLookup}>
+                                {lookupState.loading ? 'Looking up…' : 'Find Aircraft →'}
                             </button>
                         </div>
+                        <button type="button" style={{background: 'transparent', border: 'none', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer', padding: 0}} onClick={() => { setCheckInMode('manual'); setStep(3); }}>
+                            Skip lookup and enter everything manually
+                        </button>
                     </div>
                 );
             }
 
-            // STEP 2: Pilot Info
-            if (step === 2) {
+            // STEP 2: Returning Aircraft Confirmation
+            if (step === 2 && matchedCustomer) {
                 return (
-                    <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '600px', width: '100%'}}>
+                    <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '640px', width: '100%'}}>
                         <div className="progress-bar">
                             <div className="progress-step active"></div>
                             <div className="progress-step active"></div>
                             <div className="progress-step"></div>
                             <div className="progress-step"></div>
                         </div>
-                        <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem', color: '#1f2937'}}>
-                            👤 Contact Information
+                        <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#1f2937'}}>
+                            ✅ Returning Aircraft Found
                         </h2>
-                        <div style={{marginBottom: '1.5rem'}}>
-                            <label style={{fontWeight: 600, color: '#374151'}}>Pilot Name *</label>
-                            <input 
-                                className="input-field"
-                                placeholder="John Smith"
-                                value={formData.pilotName}
-                                onChange={(e) => setFormData({...formData, pilotName: e.target.value})}
-                            />
+                        <p style={{color: '#6b7280', marginBottom: '1.5rem', lineHeight: 1.5}}>
+                            We found a previous check-in for {matchedCustomer.tailNumber}. Is this still correct?
+                        </p>
+                        <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '1rem', marginBottom: '1rem'}}>
+                            <h3 style={{fontWeight: 'bold', marginBottom: '0.5rem'}}>Aircraft</h3>
+                            <p style={{fontWeight: 700, marginBottom: '0.35rem'}}>{matchedCustomer.tailNumber}</p>
+                            <p style={{color: '#374151'}}>{matchedCustomer.aircraftType || 'Aircraft type not on file'}</p>
                         </div>
-                        <div style={{marginBottom: '1.5rem'}}>
-                            <label style={{fontWeight: 600, color: '#374151'}}>Email *</label>
-                            <input 
-                                className="input-field"
-                                type="email"
-                                placeholder="john@example.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            />
+                        <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '1rem', marginBottom: '2rem'}}>
+                            <h3 style={{fontWeight: 'bold', marginBottom: '0.5rem'}}>Operator / Contact</h3>
+                            <p style={{fontWeight: 700, marginBottom: '0.35rem'}}>{matchedCustomer.pilotName || matchedCustomer.ownerName || 'Contact on file'}</p>
+                            <p style={{color: '#374151', lineHeight: 1.5}}>{returningSummary || 'No additional contact details on file'}</p>
                         </div>
-                        <div style={{marginBottom: '1.5rem'}}>
-                            <label style={{fontWeight: 600, color: '#374151'}}>Phone *</label>
-                            <input 
-                                className="input-field"
-                                placeholder="605-555-1234"
-                                value={formData.phone}
-                                onChange={handlePhoneChange}
-                                maxLength="12"
-                            />
+                        <div style={{display: 'grid', gap: '0.75rem'}}>
+                            <button className="btn btn-primary" onClick={() => handleReturningChoice('returning-confirmed')}>
+                                Yes, that’s correct
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => handleReturningChoice('update')}>
+                                Update information
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => handleReturningChoice('different-operator')}>
+                                Different operator / new owner
+                            </button>
                         </div>
-                        <div style={{marginBottom: '2rem'}}>
-                            <label style={{fontWeight: 600, color: '#374151'}}>Company (optional)</label>
-                            <input 
-                                className="input-field"
-                                placeholder="Company name"
-                                value={formData.company}
-                                onChange={(e) => setFormData({...formData, company: e.target.value})}
-                            />
-                        </div>
-                        <div style={{display: 'flex', gap: '1rem'}}>
+                        <div style={{marginTop: '1rem', display: 'flex', justifyContent: 'space-between', gap: '1rem'}}>
                             <button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
-                            <button className="btn btn-primary" style={{flex: 1}}
-                                    disabled={!formData.pilotName || !formData.email || !formData.phone}
-                                    onClick={() => setStep(3)}>
-                                Next →
+                            <button className="btn btn-secondary" onClick={() => { resetLookup(); setCheckInMode('manual'); setStep(3); }}>
+                                No match / start over
                             </button>
                         </div>
                     </div>
                 );
             }
 
-            // STEP 3: Services
+            // STEP 3: Aircraft + Contact Info
             if (step === 3) {
+                return (
+                    <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '640px', width: '100%'}}>
+                        <div className="progress-bar">
+                            <div className="progress-step active"></div>
+                            <div className={`progress-step ${lookupState.matched || checkInMode !== 'new' ? 'active' : ''}`}></div>
+                            <div className="progress-step"></div>
+                            <div className="progress-step"></div>
+                        </div>
+                        <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.75rem', color: '#1f2937'}}>
+                            ✈️ Aircraft & Contact Information
+                        </h2>
+                        <p style={{color: '#6b7280', marginBottom: '1.5rem', lineHeight: 1.5}}>
+                            {checkInMode === 'update'
+                                ? 'We prefilled the previous record. Update anything that changed, then continue.'
+                                : checkInMode === 'different-operator'
+                                    ? 'We used the previous aircraft record as a starting point. Enter the current operator details below.'
+                                    : 'Enter the aircraft and primary contact details for this visit.'}
+                        </p>
+                        {submitError && (
+                            <div style={{marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', background: '#fef3c7', color: '#92400e', fontWeight: 600}}>
+                                {submitError}
+                            </div>
+                        )}
+                        <div style={{marginBottom: '1rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Tail Number *</label>
+                            <input className="input-field" placeholder="N12345" value={formData.tailNumber} onChange={(e) => setFormData({...formData, tailNumber: normalizeTailNumber(e.target.value)})} />
+                        </div>
+                        <div style={{marginBottom: '1rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Aircraft Type *</label>
+                            <input className="input-field" placeholder="Citation CJ3" value={formData.aircraftType} onChange={(e) => setFormData({...formData, aircraftType: e.target.value})} />
+                        </div>
+                        <div style={{marginBottom: '1rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Pilot Name *</label>
+                            <input className="input-field" placeholder="John Smith" value={formData.pilotName} onChange={(e) => setFormData({...formData, pilotName: e.target.value})} />
+                        </div>
+                        <div style={{marginBottom: '1rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Email *</label>
+                            <input className="input-field" type="email" placeholder="john@example.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                        </div>
+                        <div style={{marginBottom: '1rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Phone *</label>
+                            <input className="input-field" placeholder="605-555-1234" value={formData.phone} onChange={handlePhoneChange} maxLength="12" />
+                        </div>
+                        <div style={{marginBottom: '2rem'}}>
+                            <label style={{fontWeight: 600, color: '#374151'}}>Company (optional)</label>
+                            <input className="input-field" placeholder="Company name" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} />
+                        </div>
+                        <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap'}}>
+                            <button className="btn btn-secondary" onClick={() => setStep(lookupState.matched ? 2 : 1)}>← Back</button>
+                            <button className="btn btn-primary" style={{flex: 1}} onClick={goToServicesStep}>
+                                Continue to Services →
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // STEP 4: Services
+            if (step === 4) {
                 return (
                     <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '700px', width: '100%'}}>
                         <div className="progress-bar">
@@ -639,8 +820,8 @@
                         </div>
 
                         <div style={{display: 'flex', gap: '1rem'}}>
-                            <button className="btn btn-secondary" onClick={() => setStep(2)}>← Back</button>
-                            <button className="btn btn-primary" style={{flex: 1}} onClick={() => setStep(4)}>
+                            <button className="btn btn-secondary" onClick={() => setStep(lookupState.matched ? 2 : 3)}>← Back</button>
+                            <button className="btn btn-primary" style={{flex: 1}} onClick={() => setStep(5)}>
                                 Review →
                             </button>
                         </div>
@@ -648,8 +829,8 @@
                 );
             }
 
-            // STEP 4: Confirmation
-            if (step === 4) {
+            // STEP 5: Confirmation
+            if (step === 5) {
                 return (
                     <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '600px', width: '100%'}}>
                         <div className="progress-bar">
@@ -732,7 +913,7 @@
                         </div>
 
                         <div style={{display: 'flex', gap: '1rem'}}>
-                            <button className="btn btn-secondary" onClick={() => setStep(3)}>← Back</button>
+                            <button className="btn btn-secondary" onClick={() => setStep(4)}>← Back</button>
                             <button className="btn btn-primary" style={{flex: 1}} onClick={handleSubmit}>
                                 ✅ Confirm Check-In
                             </button>
@@ -741,8 +922,8 @@
                 );
             }
 
-            // STEP 5: Success
-            if (step === 5) {
+            // STEP 6: Success
+            if (step === 6) {
                 return (
                     <div className="glass-card" style={{borderRadius: '2rem', padding: '3rem', maxWidth: '600px', textAlign: 'center'}}>
                         <div style={{fontSize: '5rem', marginBottom: '1rem'}}>✅</div>

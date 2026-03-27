@@ -14,9 +14,11 @@ import {
   createOrder,
   createOrderMessage,
   deleteAlert,
+  findReturningCheckInMatch,
   listAlerts,
   listOrderMessages,
   listOrders,
+  normalizeTailNumber,
   resolveAlert,
   updateOrder,
   upsertThreadRead,
@@ -53,6 +55,20 @@ router.get('/orders', async ({ req }) => {
   return {
     ok: true,
     items: await listOrders(),
+  };
+});
+
+router.get('/checkin/lookup', async ({ url }) => {
+  const tail = url.searchParams.get('tail') || '';
+  const normalizedTail = normalizeTailNumber(tail);
+  const match = await findReturningCheckInMatch(normalizedTail);
+
+  return {
+    ok: true,
+    tail,
+    normalizedTail,
+    matched: Boolean(match),
+    match,
   };
 });
 

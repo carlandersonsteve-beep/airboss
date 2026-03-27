@@ -44,6 +44,82 @@ export async function listCustomers() {
   return result.rows.map(mapCustomerRow);
 }
 
+export function normalizeTailNumber(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return '';
+
+  const compact = raw.replace(/[^A-Z0-9]/g, '');
+  if (!compact) return '';
+  if (/^N[A-Z0-9]+$/.test(compact)) return compact;
+  if (/^[0-9][A-Z0-9]*$/.test(compact)) return `N${compact}`;
+  return compact;
+}
+
+export async function findReturningCheckInMatch(tailNumber) {
+  const normalizedTail = normalizeTailNumber(tailNumber);
+  if (!normalizedTail) return null;
+
+  if (!env.databaseUrl) {
+    const customers = getLocalStore().customers || [];
+    const match = customers
+      .slice()
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .find((customer) => normalizeTailNumber(customer.tailNumber) === normalizedTail);
+
+    if (!match) return null;
+
+    return {
+      matched: true,
+      normalizedTail,
+      customer: {
+        id: match.id,
+        tailNumber: normalizeTailNumber(match.tailNumber),
+        aircraftType: match.aircraftType || '',
+        ownerName: match.ownerName || '',
+        pilotName: match.pilotName || '',
+        phone: match.phone || '',
+        email: match.email || '',
+        company: match.company || '',
+        homeBase: match.homeBase || '',
+        notes: match.notes || '',
+        source: match.source || '',
+        createdAt: match.createdAt || null,
+      },
+    };
+  }
+
+  const result = await query(`
+    select id, created_at, tail_number, aircraft_type, owner_name, pilot_name, phone, email, company, home_base, notes, source
+    from customers
+    where upper(regexp_replace(coalesce(tail_number, ''), '[^A-Za-z0-9]', '', 'g')) = $1
+       or upper(regexp_replace(coalesce(tail_number, ''), '[^A-Za-z0-9]', '', 'g')) = regexp_replace($1, '^N', '')
+    order by created_at desc
+    limit 1
+  `, [normalizedTail]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  const customer = mapCustomerRow(row);
+  return {
+    matched: true,
+    normalizedTail,
+    customer: {
+      ...customer,
+      tailNumber: normalizeTailNumber(customer.tailNumber),
+      aircraftType: customer.aircraftType || '',
+      ownerName: customer.ownerName || '',
+      pilotName: customer.pilotName || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      company: customer.company || '',
+      homeBase: customer.homeBase || '',
+      notes: customer.notes || '',
+      source: customer.source || '',
+    },
+  };
+}
+
 export async function createCustomer(payload) {
   requireField(payload.id, 'id');
   requireField(payload.tailNumber, 'tailNumber');
@@ -120,8 +196,10 @@ export async function createOrder(payload) {
     const item = {
       id: payload.id,
       customerId: payload.customerId,
+      tailNumber: payload.tailNumber || null,
+      aircraftType: payload.aircraftType || payload.aircraft || null,
       createdAt: payload.createdAt || new Date().toISOString(),
-      status: payload.status,
+      status: payload.status || 'pending',
       statusUpdatedAt: payload.statusUpdatedAt || null,
       fuelType: payload.fuelType || null,
       fuelRequestedGallons: payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null,
