@@ -625,30 +625,27 @@
             };
 
             const transitionOrder = async (orderId, transitionFn) => {
-                let updatedOrder = null;
-                pendingWritesRef.current += 1;
-                setOrders(currentOrders => currentOrders.map(o => {
-                    if (o.id !== orderId) return o;
-                    updatedOrder = transitionFn(o);
-                    backupOrderUpdate(updatedOrder);
-                    return updatedOrder;
-                }));
-
-                if (updatedOrder) {
-                    try {
-                        const response = await api.updateOrder(orderId, updatedOrder);
-                        setOrders(prev => prev.map(o => o.id === orderId ? response.item : o));
-                        markBackendWriteSuccess();
-                        return response.item;
-                    } catch (error) {
-                        console.log('Order backend sync failed, kept locally', error.message);
-                        return updatedOrder;
-                    } finally {
-                        pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
-                    }
-                } else {
-                    pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
+                const currentOrder = orders.find(o => o.id === orderId);
+                if (!currentOrder) {
                     return null;
+                }
+
+                const updatedOrder = transitionFn(currentOrder);
+                backupOrderUpdate(updatedOrder);
+
+                pendingWritesRef.current += 1;
+                setOrders(currentOrders => currentOrders.map(o => o.id === orderId ? updatedOrder : o));
+
+                try {
+                    const response = await api.updateOrder(orderId, updatedOrder);
+                    setOrders(prev => prev.map(o => o.id === orderId ? response.item : o));
+                    markBackendWriteSuccess();
+                    return response.item;
+                } catch (error) {
+                    console.log('Order backend sync failed, kept locally', error.message);
+                    return updatedOrder;
+                } finally {
+                    pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
                 }
             };
 
