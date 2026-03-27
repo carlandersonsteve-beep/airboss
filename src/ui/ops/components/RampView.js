@@ -130,10 +130,10 @@ window.AirBossComponents.RampView = function RampView({
             ⚡ Quick Fuel Entry
           </button>
           <button
-            onClick={onNewCustomer}
+            onClick={() => alert('Customer Check-In QR coming soon. For now, use Aircraft Arrival or kiosk/mobile check-in.')}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
           >
-            + New Customer
+            📱 Show Check-In QR
           </button>
           <button
             onClick={onNewOrder}
