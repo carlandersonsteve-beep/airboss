@@ -960,9 +960,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             } ${!roleAllows(currentRole, 'office') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             FRONT DESK
-                                            {getReadyForFrontDeskOrders(orders).length > 0 && (
+                                            {getTodayOrders(getReadyForFrontDeskOrders(orders)).length > 0 && (
                                                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                                    {getReadyForFrontDeskOrders(orders).length}
+                                                    {getTodayOrders(getReadyForFrontDeskOrders(orders)).length}
                                                 </span>
                                             )}
                                         </button>
