@@ -17,7 +17,7 @@ window.AirBossComponents.RampView = function RampView({
   startOrderService,
   markOrderReadyForFrontDesk,
 }) {
-  const { useEffect, useMemo, useState } = React;
+  const { useEffect, useMemo, useRef, useState } = React;
   const deps = window.AirBossComponentBridge.requireDeps(
     'RampView',
     window.AirBossDeps || {},
@@ -42,6 +42,7 @@ window.AirBossComponents.RampView = function RampView({
   );
   const [activeServiceOrderId, setActiveServiceOrderId] = useState(inProgressOrders[0]?.id || null);
   const [isServicePanelOpen, setIsServicePanelOpen] = useState(inProgressOrders.length > 0);
+  const servicePanelRef = useRef(null);
 
   useEffect(() => {
     const selectedOrderStillExists = activeOrders.some(order => order.id === activeServiceOrderId);
@@ -70,9 +71,23 @@ window.AirBossComponents.RampView = function RampView({
   const activeServiceIsInProgress = Boolean(activeServiceOrder && String(activeServiceOrder.status).replace('-', '_') === 'in_progress');
   const hasFocusedServiceMode = Boolean(activeServiceOrder && activeServiceIsInProgress && isServicePanelOpen);
 
+  const scrollToServicePanel = () => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (servicePanelRef.current) {
+          servicePanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          window.scrollBy(0, -12);
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
+  };
+
   const openServicePanel = (orderId) => {
     setActiveServiceOrderId(orderId);
     setIsServicePanelOpen(true);
+    scrollToServicePanel();
   };
 
   const closeServicePanel = () => {
@@ -80,10 +95,14 @@ window.AirBossComponents.RampView = function RampView({
   };
 
   useEffect(() => {
-    if (hasFocusedServiceMode && servicePanelRef.current) {
-      servicePanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (hasFocusedServiceMode) {
+      scrollToServicePanel();
     }
   }, [hasFocusedServiceMode, activeServiceOrderId]);
+
+  const queueOrders = hasFocusedServiceMode
+    ? activeOrders.filter(order => order.id !== activeServiceOrderId)
+    : activeOrders;
 
   return (
     <div>
@@ -146,7 +165,7 @@ window.AirBossComponents.RampView = function RampView({
       )}
 
       {hasFocusedServiceMode && (
-        <div className="mb-6">
+        <div ref={servicePanelRef} className="mb-6">
           <ServicePanel
             order={activeServiceOrder}
             customer={activeServiceCustomer}
@@ -185,49 +204,40 @@ window.AirBossComponents.RampView = function RampView({
             </div>
           )}
         </div>
-        {(() => {
-          const queueOrders = hasFocusedServiceMode
-            ? activeOrders.filter(order => order.id !== activeServiceOrderId)
-            : activeOrders;
 
-          if (queueOrders.length === 0) {
-            return (
-              <p className="text-gray-500 text-center py-8">
-                {hasFocusedServiceMode
-                  ? 'No other aircraft are waiting in the ramp queue while this service is active.'
-                  : 'No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.'}
-              </p>
-            );
-          }
-
-          return (
-            <div className="space-y-3">
-              {queueOrders.map(order => {
-                const customer = customers.find(c => c.id === order.customerId);
-                return (
-                  <div key={order.id} className={hasFocusedServiceMode ? 'opacity-70' : ''}>
-                    <OrderCard
-                      order={order}
-                      customer={customer}
-                      updateOrderStatus={updateOrderStatus}
-                      addTicket={addTicket}
-                      messages={messages}
-                      addMessage={addMessage}
-                      getUnreadOrderThreadCount={getUnreadOrderThreadCount}
-                      markOrderThreadRead={markOrderThreadRead}
-                      startOrderService={startOrderService}
-                      markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
-                      onServiceStarted={openServicePanel}
-                      onOpenServicePanel={openServicePanel}
-                      compact={hasFocusedServiceMode}
-                      suppressActions={hasFocusedServiceMode}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+        {queueOrders.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            {hasFocusedServiceMode
+              ? 'No other aircraft are waiting in the ramp queue while this service is active.'
+              : 'No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.'}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {queueOrders.map(order => {
+              const customer = customers.find(c => c.id === order.customerId);
+              return (
+                <div key={order.id} className={hasFocusedServiceMode ? 'opacity-70' : ''}>
+                  <OrderCard
+                    order={order}
+                    customer={customer}
+                    updateOrderStatus={updateOrderStatus}
+                    addTicket={addTicket}
+                    messages={messages}
+                    addMessage={addMessage}
+                    getUnreadOrderThreadCount={getUnreadOrderThreadCount}
+                    markOrderThreadRead={markOrderThreadRead}
+                    startOrderService={startOrderService}
+                    markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
+                    onServiceStarted={openServicePanel}
+                    onOpenServicePanel={openServicePanel}
+                    compact={hasFocusedServiceMode}
+                    suppressActions={hasFocusedServiceMode}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
