@@ -1003,20 +1003,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         <div className="text-xs text-white/80 font-medium px-3 py-2 rounded-lg bg-black/20">
                                             {session.displayName || session.username} · {currentRole}
                                         </div>
-                                        <button
-                                            onClick={exportData}
-                                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
-                                            title="Export all data as backup"
-                                        >
-                                            📥
-                                        </button>
-                                        <button
-                                            onClick={importData}
-                                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
-                                            title="Import data from backup file"
-                                        >
-                                            📤
-                                        </button>
+
                                         <button
                                             onClick={handleLogout}
                                             className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
