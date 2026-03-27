@@ -179,36 +179,49 @@ window.AirBossComponents.RampView = function RampView({
             </div>
           )}
         </div>
-        {activeOrders.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.</p>
-        ) : (
-          <div className="space-y-3">
-            {activeOrders.map(order => {
-              const customer = customers.find(c => c.id === order.customerId);
-              const isFocusedOrder = activeServiceOrderId === order.id;
-              return (
-                <div key={order.id} className={hasFocusedServiceMode && !isFocusedOrder ? 'opacity-70' : ''}>
-                  <OrderCard
-                    order={order}
-                    customer={customer}
-                    updateOrderStatus={updateOrderStatus}
-                    addTicket={addTicket}
-                    messages={messages}
-                    addMessage={addMessage}
-                    getUnreadOrderThreadCount={getUnreadOrderThreadCount}
-                    markOrderThreadRead={markOrderThreadRead}
-                    startOrderService={startOrderService}
-                    markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
-                    onServiceStarted={openServicePanel}
-                    onOpenServicePanel={openServicePanel}
-                    compact={hasFocusedServiceMode}
-                    suppressActions={hasFocusedServiceMode && !isFocusedOrder}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {(() => {
+          const queueOrders = hasFocusedServiceMode
+            ? activeOrders.filter(order => order.id !== activeServiceOrderId)
+            : activeOrders;
+
+          if (queueOrders.length === 0) {
+            return (
+              <p className="text-gray-500 text-center py-8">
+                {hasFocusedServiceMode
+                  ? 'No other aircraft are waiting in the ramp queue while this service is active.'
+                  : 'No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.'}
+              </p>
+            );
+          }
+
+          return (
+            <div className="space-y-3">
+              {queueOrders.map(order => {
+                const customer = customers.find(c => c.id === order.customerId);
+                return (
+                  <div key={order.id} className={hasFocusedServiceMode ? 'opacity-70' : ''}>
+                    <OrderCard
+                      order={order}
+                      customer={customer}
+                      updateOrderStatus={updateOrderStatus}
+                      addTicket={addTicket}
+                      messages={messages}
+                      addMessage={addMessage}
+                      getUnreadOrderThreadCount={getUnreadOrderThreadCount}
+                      markOrderThreadRead={markOrderThreadRead}
+                      startOrderService={startOrderService}
+                      markOrderReadyForFrontDesk={markOrderReadyForFrontDesk}
+                      onServiceStarted={openServicePanel}
+                      onOpenServicePanel={openServicePanel}
+                      compact={hasFocusedServiceMode}
+                      suppressActions={hasFocusedServiceMode}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
