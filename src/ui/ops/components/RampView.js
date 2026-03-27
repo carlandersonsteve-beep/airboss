@@ -35,6 +35,7 @@ window.AirBossComponents.RampView = function RampView({
   const todayOrders = getTodayOrders(orders);
   const activeOrders = getActiveRampOrders(orders);
   const readyForFrontDeskOrders = getReadyForFrontDeskOrders(orders);
+  const todayReadyForFrontDeskOrders = getTodayOrders(readyForFrontDeskOrders);
   const unreadThreadOrders = activeOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
   const inProgressOrders = useMemo(
     () => activeOrders.filter(order => String(order.status).replace('-', '_') === 'in_progress'),
@@ -145,7 +146,7 @@ window.AirBossComponents.RampView = function RampView({
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="stat-card p-6">
-          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Active Orders Today</div>
+          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Active Orders</div>
           <div className="text-3xl font-bold mustang-red-text mt-2">{activeOrders.length}</div>
         </div>
         <div className="stat-card p-6">
@@ -194,9 +195,9 @@ window.AirBossComponents.RampView = function RampView({
                 : 'Pending arrivals and active aircraft waiting on ramp work.'}
             </p>
           </div>
-          {readyForFrontDeskOrders.length > 0 && (
+          {todayReadyForFrontDeskOrders.length > 0 && (
             <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-900 px-4 py-2 rounded-lg">
-              <span className="font-semibold">{readyForFrontDeskOrders.length} aircraft waiting on Front Desk</span>
+              <span className="font-semibold">{todayReadyForFrontDeskOrders.length} aircraft waiting on Front Desk</span>
               {onViewOffice && (
                 <button
                   onClick={onViewOffice}
