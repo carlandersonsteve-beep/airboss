@@ -219,7 +219,9 @@ router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
 });
 
 router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  if (env.databaseUrl) {
+    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
   requireField(body?.role, 'role');
   const item = await upsertThreadRead({
     orderId: params[0],
