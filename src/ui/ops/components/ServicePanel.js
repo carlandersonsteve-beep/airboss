@@ -239,10 +239,3 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
     </>
   );
 };
-Close={() => setShowCompleteModal(false)}
-          onConfirm={handleSaveAndNotify}
-        />
-      )}
-    </>
-  );
-};
