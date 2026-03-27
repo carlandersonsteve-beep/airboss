@@ -143,7 +143,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="stat-card p-6 border-l-4 border-orange-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Ready to Bill</div>
-          <div className="text-3xl font-bold text-orange-600 mt-2">{readyToBillOrders.length}</div>
+          <div className="text-3xl font-bold text-orange-600 mt-2">{filter === 'archive' ? 0 : filteredOrders.length}</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-red-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Ramp Threads</div>
