@@ -84,9 +84,11 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
   const filteredOrders = (() => {
     if (filter === 'archive') return getClosedOrders(orders);
-    if (filter === 'today') return getTodayOrders(orders);
-    if (filter === 'week') return getWeekOrders(orders);
-    return orders;
+
+    const readyQueue = getReadyForFrontDeskOrders(orders);
+    if (filter === 'today') return getTodayOrders(readyQueue);
+    if (filter === 'week') return getWeekOrders(readyQueue);
+    return readyQueue;
   })();
 
   const totalJetA = getFuelTotal(filteredOrders, 'JET-A');
