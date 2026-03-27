@@ -206,7 +206,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
                 </button>
               </div>
               <div className="mt-4 rounded-lg bg-white border border-gray-200 p-3 text-sm text-gray-700">
-                This aircraft stays here until Ramp completes service. Then it moves into Front Desk’s ready-to-bill queue.
+                This aircraft stays in focused service mode until Ramp completes service. Then it moves into Front Desk’s ready-to-bill queue.
               </div>
             </div>
           </div>

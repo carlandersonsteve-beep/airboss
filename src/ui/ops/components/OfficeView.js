@@ -247,7 +247,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         onClick={() => setExpandedThreadOrderId(showThread ? null : order.id)}
                         className="text-xs bg-gray-800 hover:bg-black text-white px-3 py-1 rounded-full font-bold transition"
                       >
-                        {showThread ? 'Hide Thread' : `Open Thread (${orderMessages.length})`}
+                        {showThread ? 'Hide Thread' : `Open Ramp Thread (${orderMessages.length})`}
                       </button>
                     </div>
                   </div>
@@ -282,7 +282,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                       <button onClick={() => recallOrder(order.id)} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm font-medium">↩ Recall</button>
                       <button onClick={() => setFinalizeOrderId(order.id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">Finalize</button>
                       {!showThread && (
-                        <button onClick={() => setExpandedThreadOrderId(order.id)} className="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded text-sm font-medium">💬 Message Ramp</button>
+                        <button onClick={() => setExpandedThreadOrderId(order.id)} className="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded text-sm font-medium">💬 Reply to Ramp</button>
                       )}
                     </>
                   )}
