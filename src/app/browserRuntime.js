@@ -35,8 +35,8 @@
       return (orders || []).filter((order) => order.createdAt && isSameDay(order.createdAt, now));
     },
 
-    activeRamp(orders, now = new Date()) {
-      return this.today(orders, now).filter((order) => {
+    activeRamp(orders) {
+      return (orders || []).filter((order) => {
         const status = normalizeOrderStatus(order.status);
         return status === ORDER_STATUS.PENDING || status === ORDER_STATUS.IN_PROGRESS;
       });
