@@ -79,6 +79,12 @@ window.AirBossComponents.RampView = function RampView({
     setIsServicePanelOpen(false);
   };
 
+  useEffect(() => {
+    if (hasFocusedServiceMode && servicePanelRef.current) {
+      servicePanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [hasFocusedServiceMode, activeServiceOrderId]);
+
   return (
     <div>
       <div className="lg:hidden mb-4">
