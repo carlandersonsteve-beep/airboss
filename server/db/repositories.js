@@ -468,7 +468,7 @@ export async function listOrderMessages(orderId = null) {
 
 export async function createOrderMessage(payload) {
   requireField(payload.id, 'id');
-  requireField(payload.orderId, 'orderId');
+  // orderId is optional — null means general chat message
   requireField(payload.text, 'text');
   requireField(payload.senderRole, 'senderRole');
 
