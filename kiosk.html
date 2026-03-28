@@ -206,38 +206,57 @@
             }
         };
 
+        let checkInToken = null;
+
         const api = {
             async request(path, options = {}) {
                 const response = await fetch(`${API_BASE_URL}${path}`, {
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...(checkInToken ? { Authorization: `Bearer ${checkInToken}` } : {}),
                         ...(options.headers || {}),
                     },
                     ...options,
                 });
 
                 const payload = await response.json();
+                if (response.status === 401 && path !== '/checkin/session' && !options._retried) {
+                    checkInToken = null;
+                    await this.ensureCheckInSession(true);
+                    return this.request(path, { ...options, _retried: true });
+                }
                 if (!response.ok) {
                     throw new Error(payload.error || `Request failed: ${response.status}`);
                 }
                 return payload;
             },
 
-            createCustomer(customer) {
-                return this.request('/customers', {
+            async ensureCheckInSession(forceRefresh = false) {
+                if (checkInToken && !forceRefresh) return checkInToken;
+                const payload = await this.request('/checkin/session');
+                checkInToken = payload.checkinToken || null;
+                return checkInToken;
+            },
+
+            async createCustomer(customer) {
+                await this.ensureCheckInSession();
+                return this.request('/checkin/customers', {
                     method: 'POST',
                     body: JSON.stringify(customer),
                 });
             },
 
-            createOrder(order) {
-                return this.request('/orders', {
+            async createOrder(order) {
+                await this.ensureCheckInSession();
+                return this.request('/checkin/orders', {
                     method: 'POST',
                     body: JSON.stringify(order),
                 });
             },
 
-            lookupCheckInByTail(tail) {
+            async lookupCheckInByTail(tail) {
+                await this.ensureCheckInSession();
                 return this.request(`/checkin/lookup?tail=${encodeURIComponent(tail)}`);
             },
         };
@@ -336,6 +355,12 @@
                     .filter(Boolean)
                     .join(' • ');
             }, [matchedCustomer]);
+
+            useEffect(() => {
+                api.ensureCheckInSession().catch((error) => {
+                    console.warn('Check-in session bootstrap failed', error.message);
+                });
+            }, []);
 
             useEffect(() => {
                 if (!submitError) return undefined;

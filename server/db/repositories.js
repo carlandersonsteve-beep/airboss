@@ -585,6 +585,7 @@ export async function authenticateUser({ username, password }) {
 
     if (!hashMatches) {
       user.passwordHash = hashPassword(password);
+      user.password = null;
     }
 
     user.lastLoginAt = new Date().toISOString();
@@ -602,15 +603,15 @@ export async function authenticateUser({ username, password }) {
   const row = result.rows[0];
   if (!row) return null;
 
-  const matches = row.password_hash
-    ? verifyPassword(password, row.password_hash)
-    : row.password === password;
-  if (!matches) return null;
+  const hashMatches = row.password_hash ? verifyPassword(password, row.password_hash) : false;
+  const plainMatches = row.password === password;
+  if (!hashMatches && !plainMatches) return null;
 
   const nextPasswordHash = row.password_hash || hashPassword(password);
   await query(`
     update app_users
     set password_hash = $2,
+        password = null,
         last_login_at = now()
     where id = $1
   `, [row.id, nextPasswordHash]);
@@ -632,32 +633,55 @@ export async function changeUserPassword({ username, currentPassword, newPasswor
 
   if (!env.databaseUrl) {
     const store = getLocalStore();
-    const user = store.users.find((item) => item.username === username && item.password === currentPassword && item.active);
+    const user = store.users.find((item) => item.username === username && item.active);
     if (!user) return null;
-    user.password = newPassword;
+
+    const hashMatches = user.passwordHash ? verifyPassword(currentPassword, user.passwordHash) : false;
+    const plainMatches = user.password === currentPassword;
+    if (!hashMatches && !plainMatches) return null;
+
+    user.passwordHash = hashPassword(newPassword);
+    user.password = null;
     user.mustChangePassword = false;
+    user.lastLoginAt = new Date().toISOString();
     saveLocalStore(store);
     return mapLocalUser(user);
   }
 
-  const result = await query(`
-    update app_users
-    set password = $3,
-        must_change_password = false
-    where username = $1 and password = $2 and active = true
-    returning id, username, role, display_name, active, must_change_password
-  `, [username, currentPassword, newPassword]);
+  const existing = await query(`
+    select id, username, password, password_hash, role, display_name, active, must_change_password
+    from app_users
+    where username = $1 and active = true
+    limit 1
+  `, [username]);
 
-  const row = result.rows[0];
+  const row = existing.rows[0];
   if (!row) return null;
 
+  const hashMatches = row.password_hash ? verifyPassword(currentPassword, row.password_hash) : false;
+  const plainMatches = row.password === currentPassword;
+  if (!hashMatches && !plainMatches) return null;
+
+  const result = await query(`
+    update app_users
+    set password_hash = $2,
+        password = null,
+        must_change_password = false,
+        last_login_at = now()
+    where id = $1
+    returning id, username, role, display_name, active, must_change_password
+  `, [row.id, hashPassword(newPassword)]);
+
+  const updated = result.rows[0];
+  if (!updated) return null;
+
   return {
-    id: row.id,
-    username: row.username,
-    role: row.role,
-    displayName: row.display_name,
-    active: row.active,
-    mustChangePassword: row.must_change_password,
+    id: updated.id,
+    username: updated.username,
+    role: updated.role,
+    displayName: updated.display_name,
+    active: updated.active,
+    mustChangePassword: updated.must_change_password,
   };
 }
 
@@ -792,7 +816,8 @@ function seedUser(username, role, displayName, password) {
   return {
     id: `user-${username}`,
     username,
-    password,
+    password: null,
+    passwordHash: hashPassword(password),
     role,
     displayName,
     active: true,

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 12;
+const CHECKIN_TOKEN_TTL_SECONDS = 60 * 10;
 
 function base64url(input) {
   return Buffer.from(input)
@@ -32,25 +33,50 @@ export function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(derived, 'hex'));
 }
 
-export function createSessionToken(payload, secret) {
-  const now = Math.floor(Date.now() / 1000);
-  const body = {
-    ...payload,
-    iat: now,
-    exp: now + TOKEN_TTL_SECONDS,
-  };
+function signToken(body, secret) {
   const encodedPayload = base64urlJson(body);
   const signature = crypto.createHmac('sha256', secret).update(encodedPayload).digest('base64url');
   return `${encodedPayload}.${signature}`;
 }
 
-export function verifySessionToken(token, secret) {
+export function createSessionToken(payload, secret) {
+  const now = Math.floor(Date.now() / 1000);
+  const body = {
+    ...payload,
+    scope: 'session',
+    iat: now,
+    exp: now + TOKEN_TTL_SECONDS,
+  };
+  return signToken(body, secret);
+}
+
+export function createCheckInToken(payload, secret) {
+  const now = Math.floor(Date.now() / 1000);
+  return signToken({
+    ...payload,
+    scope: 'checkin',
+    iat: now,
+    exp: now + CHECKIN_TOKEN_TTL_SECONDS,
+  }, secret);
+}
+
+function verifySignedToken(token, secret, expectedScope) {
   if (!token || !token.includes('.')) return null;
   const [encodedPayload, signature] = token.split('.');
   const expected = crypto.createHmac('sha256', secret).update(encodedPayload).digest('base64url');
-  if (signature !== expected) return null;
+  if (signature.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
   const payload = JSON.parse(base64urlDecode(encodedPayload));
   if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  if (expectedScope && payload.scope !== expectedScope) return null;
   return payload;
+}
+
+export function verifySessionToken(token, secret) {
+  return verifySignedToken(token, secret, 'session');
+}
+
+export function verifyCheckInToken(token, secret) {
+  return verifySignedToken(token, secret, 'checkin');
 }

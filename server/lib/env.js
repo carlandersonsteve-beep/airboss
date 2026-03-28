@@ -5,6 +5,7 @@ export const env = {
   host: process.env.HOST || '127.0.0.1',
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || defaultSessionSecret,
+  checkinSecret: process.env.CHECKIN_SECRET || process.env.SESSION_SECRET || defaultSessionSecret,
 };
 
 if (env.databaseUrl && env.sessionSecret === defaultSessionSecret) {

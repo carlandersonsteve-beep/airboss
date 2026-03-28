@@ -32,7 +32,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
     OrderMessageThread,
   } = deps;
 
-  const [filter, setFilter] = useState('today');
+  const [filter, setFilter] = useState('all');
   const [expandedThreadOrderId, setExpandedThreadOrderId] = useState(null);
   const [finalizeOrderId, setFinalizeOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');

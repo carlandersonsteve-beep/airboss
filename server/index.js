@@ -5,7 +5,7 @@ import { createRouter } from './lib/router.js';
 import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
 import { tryServeStatic } from './lib/static.js';
-import { createSessionToken, verifySessionToken } from './lib/auth.js';
+import { createCheckInToken, createSessionToken, verifyCheckInToken, verifySessionToken } from './lib/auth.js';
 import {
   authenticateUser,
   changeUserPassword,
@@ -55,6 +55,16 @@ router.get('/orders', async ({ req }) => {
   return {
     ok: true,
     items: await listOrders(),
+  };
+});
+
+router.get('/checkin/session', async () => {
+  const token = createCheckInToken({ channel: 'public-kiosk' }, env.checkinSecret);
+  return {
+    ok: true,
+    checkinToken: token,
+    cookie: createCheckInCookie(token),
+    expiresInSeconds: 60 * 10,
   };
 });
 
@@ -133,24 +143,42 @@ router.post('/change-password', async ({ body }) => {
 });
 
 router.post('/customers', async ({ body, req }) => {
-  const payload = body || {};
-  if (env.databaseUrl && payload.source !== 'kiosk') {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
-  }
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   return {
     ok: true,
-    item: await createCustomer(payload),
+    item: await createCustomer(body || {}),
   };
 });
 
 router.post('/orders', async ({ body, req }) => {
+  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  return {
+    ok: true,
+    item: await createOrder(body || {}),
+  };
+});
+
+router.post('/checkin/customers', async ({ body, req }) => {
+  requireCheckInSession(req);
   const payload = body || {};
-  if (env.databaseUrl && payload.source !== 'kiosk-checkin') {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  if (payload.source && payload.source !== 'kiosk') {
+    throw new AppError('Invalid check-in customer source', 400);
   }
   return {
     ok: true,
-    item: await createOrder(payload),
+    item: await createCustomer({ ...payload, source: 'kiosk' }),
+  };
+});
+
+router.post('/checkin/orders', async ({ body, req }) => {
+  requireCheckInSession(req);
+  const payload = body || {};
+  if (payload.source && payload.source !== 'kiosk-checkin') {
+    throw new AppError('Invalid check-in order source', 400);
+  }
+  return {
+    ok: true,
+    item: await createOrder({ ...payload, source: 'kiosk-checkin' }),
   };
 });
 
@@ -250,7 +278,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    sendJson(res, result.statusCode || 200, result.body);
+    sendJson(res, result.statusCode || 200, result.body, result.headers || {});
   } catch (error) {
     if (error instanceof AppError) {
       sendJson(res, error.statusCode || 400, {
@@ -290,12 +318,50 @@ function requireSession(req, allowedRoles = []) {
   return session;
 }
 
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, {
+function requireCheckInSession(req) {
+  const authHeader = req.headers.authorization || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  const cookies = parseCookies(req.headers.cookie || '');
+  const token = bearerToken || cookies.groundcore_checkin;
+  const session = verifyCheckInToken(token, env.checkinSecret);
+  if (!session) {
+    throw new AppError('Valid check-in session required', 401);
+  }
+  return session;
+}
+
+function parseCookies(header) {
+  return Object.fromEntries(
+    String(header || '')
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const idx = part.indexOf('=');
+        return idx === -1
+          ? [part, '']
+          : [decodeURIComponent(part.slice(0, idx)), decodeURIComponent(part.slice(idx + 1))];
+      })
+  );
+}
+
+function createCheckInCookie(token) {
+  return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/; SameSite=Lax`;
+}
+
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  });
+    ...extraHeaders,
+  };
+
+  if (payload && typeof payload === 'object' && payload.cookie && !headers['Set-Cookie']) {
+    headers['Set-Cookie'] = payload.cookie;
+  }
+
+  res.writeHead(statusCode, headers);
   res.end(JSON.stringify(payload, null, 2));
 }
