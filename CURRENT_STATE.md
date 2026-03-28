@@ -1,52 +1,49 @@
-# Current State
+# Current State — GroundCore (updated 2026-03-28)
 
-## Existing Files
-- `index.html` — main GroundCore operations interface
-- `kiosk.html` — customer check-in kiosk
-- `src/` — new refactor scaffold for core/data/domain layers
-- `src/app/browserRuntime.js` — browser-safe runtime bridge used by the live local app
-- `src/ui/ops/components/*` — active UI extraction targets/components
-- `WORKLOG.md` — running checkpoint for session continuity
+## App Structure
+- `index.html` — main ops interface (ramp + front desk views, internal chat, order management)
+- `kiosk.html` — customer self-check-in kiosk
+- `server/` — Node HTTP backend, local file store (no DB yet — Postgres wiring exists but not deployed)
+- `src/` — refactor scaffold (runtime bridge, extracted UI components, domain/service layers)
+- `assets/` — horse.mp3, icons
 
-## Known Current Capabilities
-- customer management
-- service orders
-- tickets
-- ramp/front desk views
-- internal chat
-- local storage persistence
-- some Google Sheets / Google Forms sync behavior
+## How to Run
+```
+npm run dev
+```
+Starts server at http://localhost:8792. No `.env` required for local mode.
 
-## Refactor Progress
-- Project is now under git in `~/Work/Airboss`
-- Baseline and multiple checkpoint commits exist
-- Domain map and refactor structure docs are in place
-- Core constants/workflow/storage layers exist under `src/`
-- Repository and first-pass service layers exist under `src/`
-- Live ops app and kiosk now bridge behavioral logic through `src/app/browserRuntime.js`
-- Kiosk creation flow is now runtime-backed instead of fully ad hoc
-- Major ops UI extraction is live:
-  - `OrderCard`
-  - `RampView`
-  - `OfficeView`
-  - `OrderMessageThread`
-  - `CompletionModal`
-- Stabilization work now includes:
-  - explicit extracted-component resolver restored in `index.html`
-  - explicit component dependency validator (`componentBridge.js`)
-  - explicit top-level dependency publishing helper (`publishAirBossDeps()`)
-  - normalized extracted component resolution including `RampView`
-  - extracted components now assert required deps instead of assuming them
+## Current Capabilities
+- Customer check-in via kiosk (tail-first returning aircraft flow)
+- Service orders with ramp workflow (pending → in_progress → ready_for_front_desk → closed)
+- Focused ramp service panel (one aircraft at a time)
+- Front desk view with ready-to-bill queue
+- Order-level message threads (ramp ↔ front desk)
+- General ops chat with horse whinny notification sound
+- Local file persistence (server/data/local-store.json)
+- PWA installable (manifest + service worker shell)
+- Session-based auth with roles: ADMIN, OFFICE, RAMP, KIOSK
+- First-login forced password change flow
 
-## Likely Weak Points
-- single-file HTML structure still drives some remaining live UI behavior
-- in-browser Babel/React setup
-- localStorage is still the primary live store by design for this phase
-- extracted UI now covers the major ops surfaces and key shared pieces, but other modals/views remain inline
-- browser globals/dependency bag are still transitional, not the final UI module system
+## Pilot Accounts (local)
+| Username | Role   | Default Password        |
+|----------|--------|-------------------------|
+| steve    | ADMIN  | Airboss-Steve-Prod-2!   |
+| tacie    | OFFICE | (forced change on login)|
+| ramp     | RAMP   | (forced change on login)|
+| kiosk    | KIOSK  | (forced change on login)|
 
-## Immediate Next Focus
-- keep the local Node + Postgres run path explicit and easy (`.env` + `npm run dev`)
-- preserve current workflow while improving maintainability
-- keep local-first testing stable while shrinking remaining inline complexity
-- continue treating browser-local fallback as a safety net, not the long-term shared system of record
+## Known State
+- Running entirely off local Node server + file store
+- NOT deployed to Render yet — all testing is on localhost
+- Postgres schema exists but only activates with DATABASE_URL set
+- WORKLOG.md is stale — git log is the source of truth for recent changes
+
+## Next Milestone
+Render + Supabase deployment for real multi-device pilot with Lindsey, Neil, John.
+
+## Weak Points / Tech Debt
+- `index.html` still large; extracted components cover major surfaces but inline code remains
+- Browser globals (window.AirBossDeps, etc.) are transitional, not final architecture
+- No build system — module reuse constrained by browser loading reality
+- Google Sheets/Forms sync remnants still in codebase, not actively used
