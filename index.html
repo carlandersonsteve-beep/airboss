@@ -116,40 +116,15 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxbymVS5_yCkKIZx49fJT1LtVM3ToI05dt_upjif3qFKj2zLENnf3mTLMflABkJepDC7A/exec';
-        const GOOGLE_FORMS_BACKUP_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse';
-
-        // Sync bridge helpers — still local-first, but sync behavior is centralized here.
+        // Legacy Google side-channel sync has been retired.
+        // Keep no-op adapters temporarily so old call sites do not break while the shared backend is authoritative.
         const syncAdapters = {
-            async syncToSheets(action, data) {
-                try {
-                    await fetch(GOOGLE_SHEETS_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action, ...data })
-                    });
-                } catch (error) {
-                    console.log('Google Sheets sync attempted (background)');
-                }
+            async syncToSheets() {
+                return { ok: true, mode: 'disabled' };
             },
 
-            async backupJsonPayload(type, payload) {
-                try {
-                    const formData = new FormData();
-                    formData.append('entry.766632014', JSON.stringify({
-                        type,
-                        timestamp: new Date().toISOString(),
-                        ...payload
-                    }));
-                    await fetch(GOOGLE_FORMS_BACKUP_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: formData
-                    });
-                } catch (error) {
-                    console.log('Google Forms backup attempted (background)');
-                }
+            async backupJsonPayload() {
+                return { ok: true, mode: 'disabled' };
             }
         };
 

@@ -170,8 +170,6 @@
             });
         }
 
-        const GOOGLE_FORMS_BACKUP_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeDxs7v34X7iIreP2ZtzF31Ku8OspdbiS7pk-cxbvSadF6Iog/formResponse';
-
         const Storage = {
             get: (key) => {
                 try {
@@ -187,24 +185,8 @@
         };
 
         const syncAdapters = {
-            backupJsonPayload(type, payload) {
-                try {
-                    const formData = new FormData();
-                    formData.append('entry.766632014', JSON.stringify({
-                        type,
-                        timestamp: new Date().toISOString(),
-                        ...payload
-                    }));
-                    fetch(GOOGLE_FORMS_BACKUP_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: formData
-                    }).catch(() => {
-                        console.log('Google Forms backup attempted (background)');
-                    });
-                } catch (error) {
-                    console.log('Google Forms backup attempted (background)');
-                }
+            backupJsonPayload() {
+                return { ok: true, mode: 'disabled' };
             }
         };
 
