@@ -35,6 +35,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const [filter, setFilter] = useState('all');
   const [expandedThreadOrderId, setExpandedThreadOrderId] = useState(null);
   const [finalizeOrderId, setFinalizeOrderId] = useState(null);
+  const [confirmingSentOrderId, setConfirmingSentOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
   const unreadReadyThreads = readyToBillOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
@@ -79,7 +80,15 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
     const mailtoLink = `mailto:${customer?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
-    updateOrderStatus(order.id, order.status, { preDepartureSent: true });
+    setConfirmingSentOrderId(order.id);
+  };
+
+  const markPreDepartureSentConfirmed = (order) => {
+    updateOrderStatus(order.id, order.status, {
+      preDepartureSent: true,
+      preDepartureSentAt: new Date().toISOString(),
+    });
+    setConfirmingSentOrderId(null);
   };
 
   const filteredOrders = (() => {
@@ -126,13 +135,23 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     <span className="text-sm opacity-75 ml-2">— departs tomorrow at {depTime}</span>
                     {!customer?.email && <span className="ml-2 text-yellow-300 text-xs font-bold">⚠️ No email on file</span>}
                   </div>
-                  <button
-                    onClick={() => generatePreDepartureEmail(order, customer)}
-                    disabled={!customer?.email}
-                    className={`px-4 py-2 rounded-lg font-bold transition ${customer?.email ? 'bg-white text-blue-600 hover:bg-blue-50' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}
-                  >
-                    Send Email
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => generatePreDepartureEmail(order, customer)}
+                      disabled={!customer?.email}
+                      className={`px-4 py-2 rounded-lg font-bold transition ${customer?.email ? 'bg-white text-blue-600 hover:bg-blue-50' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}
+                    >
+                      Open Email
+                    </button>
+                    {confirmingSentOrderId === order.id && (
+                      <button
+                        onClick={() => markPreDepartureSentConfirmed(order)}
+                        className="px-4 py-2 rounded-lg font-bold transition bg-blue-900 text-white hover:bg-blue-950"
+                      >
+                        Mark Sent
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

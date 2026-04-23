@@ -79,8 +79,9 @@ window.AirBossComponents.OrderCard = function OrderCard({
 
     try {
       markOrderReadyForFrontDesk(order.id, {
+        status: 'ready',
+        completedAt: updatedOrder.completedAt,
         fuelActualGallons: finalActualFuel,
-        fuelQuantity: finalActualFuel,
         completionNotes: completionNotes || '',
       });
     } catch (error) {
@@ -140,9 +141,9 @@ window.AirBossComponents.OrderCard = function OrderCard({
             )}
           </div>
         )}
-        {order.hangar && (
+        {order.hangarOvernight && (
           <div className="bg-gray-50 p-2 rounded mt-2">
-            <span className="font-medium">Hangar:</span> {order.hangar}
+            <span className="font-medium">Parking:</span> {order.hangarOvernight === 'yes' ? 'Hangar overnight requested' : 'Outside parking requested'}
           </div>
         )}
         {order.services && order.services.length > 0 && (

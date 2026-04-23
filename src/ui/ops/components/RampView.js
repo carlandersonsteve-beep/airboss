@@ -35,7 +35,6 @@ window.AirBossComponents.RampView = function RampView({
   const todayOrders = getTodayOrders(orders);
   const activeOrders = getActiveRampOrders(orders);
   const readyForFrontDeskOrders = getReadyForFrontDeskOrders(orders);
-  const todayReadyForFrontDeskOrders = getTodayOrders(readyForFrontDeskOrders);
   const unreadThreadOrders = activeOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
   const inProgressOrders = useMemo(
     () => activeOrders.filter(order => String(order.status).replace('-', '_') === 'in_progress'),
@@ -129,12 +128,14 @@ window.AirBossComponents.RampView = function RampView({
           >
             ⚡ Quick Fuel Entry
           </button>
-          <button
-            onClick={() => alert('Customer Check-In QR coming soon. For now, use Aircraft Arrival or kiosk/mobile check-in.')}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
+          <a
+            href="/kiosk"
+            target="_blank"
+            rel="noreferrer"
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg transition inline-flex items-center justify-center"
           >
-            📱 Show Check-In QR
-          </button>
+            📱 Open Check-In
+          </a>
           <button
             onClick={onNewOrder}
             className="mustang-red mustang-red-hover text-white px-6 py-3 rounded-lg font-medium shadow-lg transition"
@@ -195,9 +196,9 @@ window.AirBossComponents.RampView = function RampView({
                 : 'Pending arrivals and active aircraft waiting on ramp work.'}
             </p>
           </div>
-          {todayReadyForFrontDeskOrders.length > 0 && (
+          {readyForFrontDeskOrders.length > 0 && (
             <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 text-orange-900 px-4 py-2 rounded-lg">
-              <span className="font-semibold">{todayReadyForFrontDeskOrders.length} aircraft waiting on Front Desk</span>
+              <span className="font-semibold">{readyForFrontDeskOrders.length} aircraft waiting on Front Desk</span>
               {onViewOffice && (
                 <button
                   onClick={onViewOffice}

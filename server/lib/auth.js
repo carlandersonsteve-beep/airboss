@@ -29,8 +29,19 @@ export function hashPassword(password, salt = crypto.randomBytes(16).toString('h
 export function verifyPassword(password, storedHash) {
   if (!storedHash || !storedHash.includes(':')) return false;
   const [salt, expected] = storedHash.split(':');
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(derived, 'hex'));
+  if (!salt || !expected) return false;
+
+  try {
+    const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const derivedBuffer = Buffer.from(derived, 'hex');
+    if (expectedBuffer.length !== derivedBuffer.length || expectedBuffer.length === 0) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuffer, derivedBuffer);
+  } catch {
+    return false;
+  }
 }
 
 function signToken(body, secret) {

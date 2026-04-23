@@ -6,20 +6,25 @@ import { env } from './lib/env.js';
 import { schemaSql } from './db/schema.js';
 import { tryServeStatic } from './lib/static.js';
 import { createCheckInToken, createSessionToken, verifyCheckInToken, verifySessionToken } from './lib/auth.js';
+import { query } from './db/client.js';
 import {
   authenticateUser,
   changeUserPassword,
   createAlert,
+  createAppSession,
   createCustomer,
   createOrder,
   createOrderMessage,
   deleteAlert,
   findReturningCheckInMatch,
+  getAppSession,
   listAlerts,
   listOrderMessages,
   listOrders,
   normalizeTailNumber,
+  revokeAppSession,
   resolveAlert,
+  touchAppSession,
   updateOrder,
   upsertThreadRead,
 } from './db/repositories.js';
@@ -27,30 +32,42 @@ import { AppError, requireField } from './lib/errors.js';
 
 const router = createRouter();
 
-router.get('/health', async () => ({
-  ok: true,
-  service: 'groundcore-backend',
-  mode: env.databaseUrl ? 'postgres-configured' : 'local-file-store',
-  databaseUrlConfigured: Boolean(env.databaseUrl),
-}));
+router.get('/health', async () => {
+  const readiness = await getReadiness();
+  return {
+    ok: readiness.ok,
+    service: 'groundcore-backend',
+    mode: readiness.mode,
+    databaseUrlConfigured: Boolean(env.databaseUrl),
+    ready: readiness.ok,
+    checks: readiness.checks,
+  };
+});
 
 router.get('/bootstrap', async ({ req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   return bootstrapPayload();
 });
 
+router.get('/config', async () => ({
+  ok: true,
+  appMode: env.databaseUrl ? 'shared' : 'local-dev',
+  storageMode: env.databaseUrl ? 'postgres' : 'local-file',
+  requiresSharedBackend: Boolean(env.databaseUrl),
+}));
+
 router.get('/schema.sql', async ({ req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN']);
+    await requireSession(req, ['ADMIN']);
   }
   return { sql: schemaSql };
 });
 
 router.get('/orders', async ({ req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   return {
     ok: true,
@@ -58,7 +75,8 @@ router.get('/orders', async ({ req }) => {
   };
 });
 
-router.get('/checkin/session', async () => {
+router.get('/checkin/session', async ({ req }) => {
+  validateCheckInOrigin(req);
   const token = createCheckInToken({ channel: 'public-kiosk' }, env.checkinSecret);
   return {
     ok: true,
@@ -68,7 +86,8 @@ router.get('/checkin/session', async () => {
   };
 });
 
-router.get('/checkin/lookup', async ({ requestUrl }) => {
+router.get('/checkin/lookup', async ({ requestUrl, req }) => {
+  requireCheckInSession(req);
   const tail = requestUrl.searchParams.get('tail') || '';
   const normalizedTail = normalizeTailNumber(tail);
   const match = await findReturningCheckInMatch(normalizedTail);
@@ -78,13 +97,13 @@ router.get('/checkin/lookup', async ({ requestUrl }) => {
     tail,
     normalizedTail,
     matched: Boolean(match),
-    match,
+    match: sanitizeCheckInMatch(match),
   };
 });
 
 router.get('/alerts', async ({ req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   return {
     ok: true,
@@ -94,7 +113,7 @@ router.get('/alerts', async ({ req }) => {
 
 router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params, req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   return {
     ok: true,
@@ -103,7 +122,7 @@ router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params, req }) => {
   };
 });
 
-router.post('/login', async ({ body }) => {
+router.post('/login', async ({ body, req }) => {
   const user = await authenticateUser({
     username: body?.username,
     password: body?.password,
@@ -113,16 +132,17 @@ router.post('/login', async ({ body }) => {
     throw new AppError('Invalid username or password', 401);
   }
 
+  const sessionRecord = await issueAppSession(user, req);
   return {
     ok: true,
     user: {
       ...user,
-      token: createSessionToken({ username: user.username, role: user.role }, env.sessionSecret),
+      token: createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret),
     },
   };
 });
 
-router.post('/change-password', async ({ body }) => {
+router.post('/change-password', async ({ body, req }) => {
   const user = await changeUserPassword({
     username: body?.username,
     currentPassword: body?.currentPassword,
@@ -133,17 +153,31 @@ router.post('/change-password', async ({ body }) => {
     throw new AppError('Current password is incorrect', 401);
   }
 
+  const priorSession = getSessionTokenPayload(req);
+  if (priorSession?.sessionId) {
+    await revokeAppSession(priorSession.sessionId);
+  }
+
+  const sessionRecord = await issueAppSession(user, req);
   return {
     ok: true,
     user: {
       ...user,
-      token: createSessionToken({ username: user.username, role: user.role }, env.sessionSecret),
+      token: createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret),
     },
   };
 });
 
+router.post('/logout', async ({ req }) => {
+  const session = getSessionTokenPayload(req);
+  if (session?.sessionId) {
+    await revokeAppSession(session.sessionId);
+  }
+  return { ok: true };
+});
+
 router.post('/customers', async ({ body, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   return {
     ok: true,
     item: await createCustomer(body || {}),
@@ -151,7 +185,7 @@ router.post('/customers', async ({ body, req }) => {
 });
 
 router.post('/orders', async ({ body, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   return {
     ok: true,
     item: await createOrder(body || {}),
@@ -183,10 +217,9 @@ router.post('/checkin/orders', async ({ body, req }) => {
 });
 
 router.post('/messages', async ({ body, req }) => {
-  // Try session auth but allow fallback for local mode
-  let session = null;
-  try { session = requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']); } catch (_) {}
-  if (!session && env.databaseUrl) throw new AppError('Authentication required', 401);
+  if (env.databaseUrl) {
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  }
   return {
     ok: true,
     item: await createOrderMessage({
@@ -198,7 +231,7 @@ router.post('/messages', async ({ body, req }) => {
 });
 
 router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   return {
     ok: true,
     item: await createOrderMessage({
@@ -210,7 +243,7 @@ router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
 });
 
 router.post('/alerts', async ({ body, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   return {
     ok: true,
     item: await createAlert({
@@ -221,7 +254,7 @@ router.post('/alerts', async ({ body, req }) => {
 });
 
 router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE']);
+  await requireSession(req, ['ADMIN', 'OFFICE']);
   return {
     ok: true,
     item: await resolveAlert(params[0]),
@@ -229,7 +262,7 @@ router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params, req }) => {
 });
 
 router.delete(/^\/alerts\/([^/]+)$/, async ({ params, req }) => {
-  requireSession(req, ['ADMIN', 'OFFICE']);
+  await requireSession(req, ['ADMIN', 'OFFICE']);
   return {
     ok: true,
     removed: await deleteAlert(params[0]),
@@ -238,7 +271,7 @@ router.delete(/^\/alerts\/([^/]+)$/, async ({ params, req }) => {
 
 router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   return {
     ok: true,
@@ -248,7 +281,7 @@ router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
 
 router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body, req }) => {
   if (env.databaseUrl) {
-    requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   }
   requireField(body?.role, 'role');
   const item = await upsertThreadRead({
@@ -281,6 +314,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, result.statusCode || 200, result.body, result.headers || {});
   } catch (error) {
     if (error instanceof AppError) {
+      console.error('GroundCore app error:', req.method, req.url, error.message, error.details || null);
       sendJson(res, error.statusCode || 400, {
         ok: false,
         error: error.message,
@@ -289,6 +323,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    console.error('GroundCore request failed:', req.method, req.url, error instanceof Error ? error.stack || error.message : String(error));
     sendJson(res, 500, {
       ok: false,
       error: 'Internal server error',
@@ -297,18 +332,51 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(env.port, env.host, () => {
-  const displayHost = env.host === '0.0.0.0' ? 'localhost' : env.host;
-  console.log(`GroundCore backend listening on http://${displayHost}:${env.port}`);
-});
+ensureRuntimeReady()
+  .then(() => {
+    server.listen(env.port, env.host, () => {
+      const displayHost = env.host === '0.0.0.0' ? 'localhost' : env.host;
+      console.log(`GroundCore backend listening on http://${displayHost}:${env.port}`);
+    });
+  })
+  .catch((error) => {
+    console.error('GroundCore startup failed:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
 
-function requireSession(req, allowedRoles = []) {
+function getSessionTokenPayload(req) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
-  const session = verifySessionToken(token, env.sessionSecret);
+  return verifySessionToken(token, env.sessionSecret);
+}
+
+async function issueAppSession(user, req) {
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+  return createAppSession({
+    username: user.username,
+    role: user.role,
+    expiresAt,
+    userAgent: req.headers['user-agent'] || '',
+    ipAddress: getRequestIp(req),
+  });
+}
+
+async function requireSession(req, allowedRoles = []) {
+  const session = getSessionTokenPayload(req);
 
   if (!session) {
     throw new AppError('Authentication required', 401);
+  }
+
+  if (env.databaseUrl) {
+    if (!session.sessionId) {
+      throw new AppError('Session invalid', 401);
+    }
+    const storedSession = await getAppSession(session.sessionId);
+    if (!storedSession || storedSession.username !== session.username || storedSession.role !== session.role) {
+      throw new AppError('Session expired or revoked', 401);
+    }
+    await touchAppSession(storedSession.id);
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
@@ -330,6 +398,44 @@ function requireCheckInSession(req) {
   return session;
 }
 
+function sanitizeCheckInMatch(match) {
+  if (!match?.customer) return null;
+  return {
+    matched: true,
+    normalizedTail: match.normalizedTail,
+    customer: {
+      tailNumber: match.customer.tailNumber || '',
+      aircraftType: match.customer.aircraftType || '',
+      pilotName: match.customer.pilotName || '',
+      company: match.customer.company || '',
+    },
+  };
+}
+
+function validateCheckInOrigin(req) {
+  if (!env.databaseUrl) return;
+
+  const origin = req.headers.origin || '';
+  const referer = req.headers.referer || '';
+  const host = req.headers.host || '';
+  const allowedPrefixes = [`https://${host}`, `http://${host}`];
+
+  const originAllowed = !origin || allowedPrefixes.some((prefix) => origin.startsWith(prefix));
+  const refererAllowed = !referer || allowedPrefixes.some((prefix) => referer.startsWith(prefix));
+
+  if (!originAllowed || !refererAllowed) {
+    throw new AppError('Invalid check-in origin', 403);
+  }
+}
+
+function getRequestIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || '';
+}
+
 function parseCookies(header) {
   return Object.fromEntries(
     String(header || '')
@@ -347,6 +453,49 @@ function parseCookies(header) {
 
 function createCheckInCookie(token) {
   return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/; SameSite=Lax`;
+}
+
+async function ensureRuntimeReady() {
+  if (!env.databaseUrl) return;
+  await query(schemaSql);
+}
+
+async function getReadiness() {
+  if (!env.databaseUrl) {
+    return {
+      ok: true,
+      mode: 'local-file-store',
+      checks: {
+        databaseConfigured: false,
+        schemaReady: true,
+      },
+    };
+  }
+
+  try {
+    await query('select 1 as ok');
+    await query(schemaSql);
+    return {
+      ok: true,
+      mode: 'postgres',
+      checks: {
+        databaseConfigured: true,
+        databaseReachable: true,
+        schemaReady: true,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      mode: 'postgres',
+      checks: {
+        databaseConfigured: true,
+        databaseReachable: false,
+        schemaReady: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
 }
 
 function sendJson(res, statusCode, payload, extraHeaders = {}) {

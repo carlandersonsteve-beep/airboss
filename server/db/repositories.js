@@ -4,7 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { query, withTransaction } from './client.js';
 import { AppError, requireField } from '../lib/errors.js';
 import { env } from '../lib/env.js';
+import crypto from 'node:crypto';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
+
+function normalizeFuelValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.round(numeric * 10) / 10;
+}
 import { canTransitionOrder, normalizeOrderStatus } from '../../src/core/workflow.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -202,8 +210,8 @@ export async function createOrder(payload) {
       status: payload.status || 'pending',
       statusUpdatedAt: payload.statusUpdatedAt || null,
       fuelType: payload.fuelType || null,
-      fuelRequestedGallons: payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null,
-      fuelActualGallons: payload.fuelActualGallons ?? null,
+      fuelRequestedGallons: normalizeFuelValue(payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null),
+      fuelActualGallons: normalizeFuelValue(payload.fuelActualGallons ?? null),
       hangarOvernight: payload.hangarOvernight || null,
       services: payload.services || [],
       notes: payload.notes || null,
@@ -243,8 +251,8 @@ export async function createOrder(payload) {
     payload.status,
     payload.statusUpdatedAt || null,
     payload.fuelType || null,
-    payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null,
-    payload.fuelActualGallons ?? null,
+    normalizeFuelValue(payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null),
+    normalizeFuelValue(payload.fuelActualGallons ?? null),
     payload.hangarOvernight || null,
     JSON.stringify(payload.services || []),
     payload.notes || null,
@@ -275,7 +283,7 @@ export async function updateOrder(orderId, patch = {}) {
     const updated = {
       ...current,
       ...patch,
-      fuelActualGallons: patch.fuelActualGallons ?? patch.fuelQuantity ?? current.fuelActualGallons,
+      fuelActualGallons: normalizeFuelValue(patch.fuelActualGallons ?? patch.fuelQuantity ?? current.fuelActualGallons),
       services: patch.services !== undefined ? (patch.services || []) : current.services,
     };
 
@@ -294,13 +302,18 @@ export async function updateOrder(orderId, patch = {}) {
   const values = [];
   let index = 1;
 
+  const normalizedPatch = { ...patch };
+  if (normalizedPatch.fuelActualGallons === undefined && normalizedPatch.fuelQuantity !== undefined) {
+    normalizedPatch.fuelActualGallons = normalizedPatch.fuelQuantity;
+  }
+  delete normalizedPatch.fuelQuantity;
+
   const mappings = {
     status: 'status',
     statusUpdatedAt: 'status_updated_at',
     fuelType: 'fuel_type',
     fuelRequestedGallons: 'fuel_requested_gallons',
     fuelActualGallons: 'fuel_actual_gallons',
-    fuelQuantity: 'fuel_actual_gallons',
     hangarOvernight: 'hangar_overnight',
     notes: 'notes',
     completionNotes: 'completion_notes',
@@ -315,9 +328,13 @@ export async function updateOrder(orderId, patch = {}) {
   };
 
   for (const [key, column] of Object.entries(mappings)) {
-    if (patch[key] !== undefined) {
+    if (normalizedPatch[key] !== undefined) {
       fields.push(`${column} = $${index++}`);
-      values.push(patch[key]);
+      if (key === 'fuelRequestedGallons' || key === 'fuelActualGallons') {
+        values.push(normalizeFuelValue(normalizedPatch[key]));
+      } else {
+        values.push(normalizedPatch[key]);
+      }
     }
   }
 
@@ -623,6 +640,95 @@ export async function authenticateUser({ username, password }) {
     displayName: row.display_name,
     active: row.active,
     mustChangePassword: row.must_change_password,
+  };
+}
+
+export async function createAppSession({ username, role, expiresAt, userAgent, ipAddress }) {
+  requireField(username, 'username');
+  requireField(role, 'role');
+  requireField(expiresAt, 'expiresAt');
+
+  if (!env.databaseUrl) {
+    return {
+      id: `local-session-${username}`,
+      username,
+      role,
+      expiresAt,
+      revokedAt: null,
+      lastSeenAt: new Date().toISOString(),
+    };
+  }
+
+  const id = crypto.randomUUID();
+  const result = await query(`
+    insert into app_sessions (
+      id, username, role, expires_at, last_seen_at, user_agent, ip_address
+    ) values (
+      $1, $2, $3, $4, now(), $5, $6
+    )
+    returning id, username, role, expires_at, revoked_at, last_seen_at
+  `, [
+    id,
+    username,
+    role,
+    expiresAt,
+    userAgent || null,
+    ipAddress || null,
+  ]);
+
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    lastSeenAt: row.last_seen_at,
+  };
+}
+
+export async function touchAppSession(sessionId) {
+  if (!sessionId || !env.databaseUrl) return;
+  await query(`
+    update app_sessions
+    set last_seen_at = now()
+    where id = $1 and revoked_at is null and expires_at > now()
+  `, [sessionId]);
+}
+
+export async function revokeAppSession(sessionId) {
+  if (!sessionId || !env.databaseUrl) return false;
+  await query(`
+    update app_sessions
+    set revoked_at = now()
+    where id = $1 and revoked_at is null
+  `, [sessionId]);
+  return true;
+}
+
+export async function getAppSession(sessionId) {
+  if (!sessionId) return null;
+  if (!env.databaseUrl) return { id: sessionId, username: 'local', role: 'ADMIN', expiresAt: null, revokedAt: null };
+
+  const result = await query(`
+    select id, username, role, expires_at, revoked_at, last_seen_at
+    from app_sessions
+    where id = $1
+    limit 1
+  `, [sessionId]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+  if (row.revoked_at) return null;
+  if (new Date(row.expires_at).getTime() <= Date.now()) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    lastSeenAt: row.last_seen_at,
   };
 }
 

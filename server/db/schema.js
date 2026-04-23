@@ -21,8 +21,8 @@ create table if not exists orders (
   status text not null,
   status_updated_at timestamptz,
   fuel_type text,
-  fuel_requested_gallons integer,
-  fuel_actual_gallons integer,
+  fuel_requested_gallons numeric,
+  fuel_actual_gallons numeric,
   hangar_overnight text,
   services jsonb not null default '[]'::jsonb,
   notes text,
@@ -39,11 +39,15 @@ create table if not exists orders (
 
 create table if not exists order_messages (
   id text primary key,
-  order_id text not null references orders(id) on delete cascade,
+  order_id text references orders(id) on delete cascade,
   text text not null,
   sender_role text not null,
   created_at timestamptz not null default now()
 );
+
+alter table order_messages alter column order_id drop not null;
+alter table orders alter column fuel_requested_gallons type numeric using fuel_requested_gallons::numeric;
+alter table orders alter column fuel_actual_gallons type numeric using fuel_actual_gallons::numeric;
 
 create index if not exists idx_order_messages_order_id_created_at
   on order_messages(order_id, created_at);
@@ -82,6 +86,21 @@ create table if not exists app_users (
   created_at timestamptz not null default now(),
   last_login_at timestamptz
 );
+
+create table if not exists app_sessions (
+  id text primary key,
+  username text not null,
+  role text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  last_seen_at timestamptz,
+  user_agent text,
+  ip_address text
+);
+
+create index if not exists idx_app_sessions_username_expires_at
+  on app_sessions(username, expires_at);
 
 alter table app_users alter column password drop not null;
 alter table app_users add column if not exists password_hash text;

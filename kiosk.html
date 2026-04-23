@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Righteous&family=Smokum&family=Rye&family=Bowlby+One&display=swap');
-        
+
         body {
             font-family: 'Inter', sans-serif;
             background: #3e2f23 url('https://images.pexels.com/photos/129733/pexels-photo-129733.jpeg?auto=compress&w=1920') center center;
@@ -187,7 +187,7 @@
         };
 
         const syncAdapters = {
-            async backupJsonPayload(type, payload) {
+            backupJsonPayload(type, payload) {
                 try {
                     const formData = new FormData();
                     formData.append('entry.766632014', JSON.stringify({
@@ -195,10 +195,12 @@
                         timestamp: new Date().toISOString(),
                         ...payload
                     }));
-                    await fetch(GOOGLE_FORMS_BACKUP_URL, {
+                    fetch(GOOGLE_FORMS_BACKUP_URL, {
                         method: 'POST',
                         mode: 'no-cors',
                         body: formData
+                    }).catch(() => {
+                        console.log('Google Forms backup attempted (background)');
                     });
                 } catch (error) {
                     console.log('Google Forms backup attempted (background)');
@@ -266,6 +268,11 @@
             current.push(record);
             Storage.set(key, current);
             return record;
+        };
+
+        const redactLookupSummary = (customer) => {
+            if (!customer) return '';
+            return [customer.pilotName, customer.company].filter(Boolean).join(' • ');
         };
 
         const buildKioskCustomerPayload = (formData) => runtime.customerService.createCustomerPayload({
@@ -351,14 +358,13 @@
             const matchedCustomer = lookupState.match?.customer || null;
             const returningSummary = useMemo(() => {
                 if (!matchedCustomer) return null;
-                return [matchedCustomer.pilotName, matchedCustomer.company, matchedCustomer.email, matchedCustomer.phone]
-                    .filter(Boolean)
-                    .join(' • ');
+                return redactLookupSummary(matchedCustomer);
             }, [matchedCustomer]);
 
             useEffect(() => {
                 api.ensureCheckInSession().catch((error) => {
                     console.warn('Check-in session bootstrap failed', error.message);
+                    setSubmitError('Unable to start secure check-in session. Please refresh or contact the desk.');
                 });
             }, []);
 
@@ -383,7 +389,7 @@
             const formatPhoneNumber = (value) => {
                 // Remove all non-digits
                 const phoneNumber = value.replace(/\D/g, '');
-                
+
                 // Format as XXX-XXX-XXXX
                 if (phoneNumber.length <= 3) {
                     return phoneNumber;
@@ -484,6 +490,45 @@
                 setStep(4);
             };
 
+            const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+            const isValidPhone = (value) => String(value || '').replace(/\D/g, '').length === 10;
+
+            const validateServiceStep = () => {
+                if (!formData.hangarOvernight) {
+                    return 'Select whether you need hangar overnight or outside parking.';
+                }
+                if (formData.fuelType && !(parseFloat(formData.fuelQuantity) > 0)) {
+                    return 'Enter requested fuel gallons when fuel type is selected.';
+                }
+                if (formData.departureTime && !formData.departureDate) {
+                    return 'Select a departure date when entering a departure time.';
+                }
+                return '';
+            };
+
+            const validateBeforeSubmit = () => {
+                if (!formData.tailNumber || !formData.aircraftType || !formData.pilotName) {
+                    return 'Aircraft and pilot information is incomplete.';
+                }
+                if (!isValidEmail(formData.email)) {
+                    return 'Enter a valid email address.';
+                }
+                if (!isValidPhone(formData.phone)) {
+                    return 'Enter a valid 10-digit phone number.';
+                }
+                return validateServiceStep();
+            };
+
+            const goToReviewStep = () => {
+                const validationError = validateServiceStep();
+                if (validationError) {
+                    setSubmitError(validationError);
+                    return;
+                }
+                setSubmitError('');
+                setStep(5);
+            };
+
             const toggleService = (serviceId) => {
                 setFormData(prev => ({
                     ...prev,
@@ -494,67 +539,81 @@
             };
 
             const handleSubmit = async () => {
-                setSubmitError('');
-                setBackendStatus('saving');
-
-                const localCustomer = appendStoredRecord('fbo_customers', buildKioskCustomerPayload(formData));
-                const localOrder = appendStoredRecord('fbo_orders', buildKioskOrderPayload(formData, localCustomer));
-
-                if (formData.marketingConsent && formData.email) {
-                    appendStoredRecord('marketing_list', buildMarketingLeadPayload(formData));
-                }
-
-                let savedCustomer = localCustomer;
-                let savedOrder = localOrder;
-
                 try {
-                    const customerResponse = await api.createCustomer(localCustomer);
-                    savedCustomer = customerResponse.item || localCustomer;
+                    const validationError = validateBeforeSubmit();
+                    if (validationError) {
+                        setSubmitError(validationError);
+                        return;
+                    }
 
-                    const backendOrderPayload = {
-                        ...localOrder,
-                        customerId: savedCustomer.id,
-                    };
-                    const orderResponse = await api.createOrder(backendOrderPayload);
-                    savedOrder = orderResponse.item || backendOrderPayload;
-                    setBackendStatus('local-file');
-                } catch (error) {
-                    console.log('Kiosk backend sync failed, kept locally', error.message);
-                    setBackendStatus('local-fallback');
-                    setSubmitError('Check-in saved locally. Shared sync is temporarily unavailable.');
-                }
-
-                await syncAdapters.backupJsonPayload('kiosk-checkin', {
-                    customer: savedCustomer,
-                    order: savedOrder,
-                    marketingConsent: formData.marketingConsent,
-                    backendStatus
-                });
-
-                setStep(6);
-                
-                // Auto-reset after 5 seconds
-                setTimeout(() => {
-                    setFormData({
-                        tailNumber: '',
-                        aircraftType: '',
-                        pilotName: '',
-                        email: '',
-                        phone: '',
-                        company: '',
-                        visitPurpose: 'fuel_stop',
-                        fuelType: '',
-                        fuelQuantity: '',
-                        hangarOvernight: '',
-                        services: [],
-                        marketingConsent: true,
-                        departureDate: '',
-                        departureTime: ''
-                    });
-                    resetLookup();
-                    setStep(0);
                     setSubmitError('');
-                }, 5000);
+                    setBackendStatus('saving');
+
+                    const localCustomer = appendStoredRecord('fbo_customers', buildKioskCustomerPayload(formData));
+                    const localOrder = appendStoredRecord('fbo_orders', buildKioskOrderPayload(formData, localCustomer));
+
+                    if (formData.marketingConsent && formData.email) {
+                        appendStoredRecord('marketing_list', buildMarketingLeadPayload(formData));
+                    }
+
+                    let savedCustomer = localCustomer;
+                    let savedOrder = localOrder;
+                    let finalBackendStatus = 'connected';
+
+                    try {
+                        const customerResponse = await api.createCustomer(localCustomer);
+                        savedCustomer = customerResponse.item || localCustomer;
+
+                        const backendOrderPayload = {
+                            ...localOrder,
+                            customerId: savedCustomer.id,
+                        };
+                        const orderResponse = await api.createOrder(backendOrderPayload);
+                        savedOrder = orderResponse.item || backendOrderPayload;
+                        setBackendStatus('connected');
+                    } catch (error) {
+                        console.log('Kiosk backend sync failed, kept locally', error.message);
+                        finalBackendStatus = 'local-fallback';
+                        setBackendStatus('local-fallback');
+                        setSubmitError('Check-in saved locally. Shared sync is temporarily unavailable.');
+                    }
+
+                    setStep(6);
+
+                    syncAdapters.backupJsonPayload('kiosk-checkin', {
+                        customer: savedCustomer,
+                        order: savedOrder,
+                        marketingConsent: formData.marketingConsent,
+                        backendStatus: finalBackendStatus
+                    });
+
+                    // Auto-reset after 5 seconds
+                    setTimeout(() => {
+                        setFormData({
+                            tailNumber: '',
+                            aircraftType: '',
+                            pilotName: '',
+                            email: '',
+                            phone: '',
+                            company: '',
+                            visitPurpose: 'fuel_stop',
+                            fuelType: '',
+                            fuelQuantity: '',
+                            hangarOvernight: '',
+                            services: [],
+                            marketingConsent: true,
+                            departureDate: '',
+                            departureTime: ''
+                        });
+                        resetLookup();
+                        setStep(0);
+                        setSubmitError('');
+                    }, 5000);
+                } catch (error) {
+                    console.error('Kiosk confirm failed', error);
+                    setBackendStatus('error');
+                    setSubmitError(error?.message || 'Unable to complete check-in right now.');
+                }
             };
 
             // STEP 0: Welcome
@@ -592,7 +651,7 @@
                             🔎 Start With Your Tail Number
                         </h2>
                         <p style={{color: '#6b7280', marginBottom: '1.5rem', lineHeight: 1.5}}>
-                            We’ll check for a previous visit so returning aircraft can skip repeating contact details.
+                            We'll check for a previous visit so returning aircraft can skip repeating contact details.
                         </p>
                         <div style={{marginBottom: '1rem'}}>
                             <label style={{fontWeight: 600, color: '#374151'}}>Tail Number *</label>
@@ -616,13 +675,13 @@
                         )}
                         {lookupState.searched && !lookupState.loading && !lookupState.matched && !lookupState.error && (
                             <div style={{marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600}}>
-                                No previous match found for {lookupState.normalizedTail || formData.tailNumber}. We’ll continue with the full check-in form.
+                                No previous match found for {lookupState.normalizedTail || formData.tailNumber}. We'll continue with the full check-in form.
                             </div>
                         )}
                         <div style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
                             <button className="btn btn-secondary" onClick={() => setStep(0)}>← Back</button>
                             <button className="btn btn-primary" style={{flex: 1}} disabled={!formData.tailNumber || lookupState.loading} onClick={handleTailLookup}>
-                                {lookupState.loading ? 'Looking up…' : 'Find Aircraft →'}
+                                {lookupState.loading ? 'Looking up...' : 'Find Aircraft →'}
                             </button>
                         </div>
                         <button type="button" style={{background: 'transparent', border: 'none', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer', padding: 0}} onClick={() => { setCheckInMode('manual'); setStep(3); }}>
@@ -660,7 +719,7 @@
                         </div>
                         <div style={{display: 'grid', gap: '0.75rem'}}>
                             <button className="btn btn-primary" onClick={() => handleReturningChoice('returning-confirmed')}>
-                                Yes, that’s correct
+                                Yes, that's correct
                             </button>
                             <button className="btn btn-secondary" onClick={() => handleReturningChoice('update')}>
                                 Update information
@@ -751,14 +810,14 @@
                         <h2 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem', color: '#1f2937'}}>
                             ⚙️ Service Requests
                         </h2>
-                        
+
                         {/* Fuel Section */}
                         <div style={{marginBottom: '2rem', padding: '1.5rem', background: '#f9fafb', borderRadius: '1rem'}}>
                             <h3 style={{fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem'}}>⛽ Fuel</h3>
                             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
                                 <div>
                                     <label style={{fontWeight: 600, color: '#374151', fontSize: '0.875rem'}}>Fuel Type</label>
-                                    <select 
+                                    <select
                                         className="input-field"
                                         value={formData.fuelType}
                                         onChange={(e) => setFormData({...formData, fuelType: e.target.value})}>
@@ -769,7 +828,7 @@
                                 </div>
                                 <div>
                                     <label style={{fontWeight: 600, color: '#374151', fontSize: '0.875rem'}}>Gallons</label>
-                                    <input 
+                                    <input
                                         className="input-field"
                                         type="number"
                                         placeholder="0"
@@ -786,7 +845,7 @@
                             <label style={{fontWeight: 600, color: '#374151', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem'}}>
                                 Required for liability purposes *
                             </label>
-                            <select 
+                            <select
                                 className="input-field"
                                 value={formData.hangarOvernight}
                                 onChange={(e) => setFormData({...formData, hangarOvernight: e.target.value})}
@@ -822,7 +881,7 @@
                                 </div>
                             </div>
                             <div style={{fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem'}}>
-                                Optional — helps us prepare your aircraft and send a courtesy reminder the day before.
+                                Optional - helps us prepare your aircraft and send a courtesy reminder the day before.
                             </div>
                         </div>
 
@@ -830,11 +889,11 @@
                         <h3 style={{fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem'}}>📋 Additional Services</h3>
                         <div style={{marginBottom: '2rem'}}>
                             {availableServices.map(service => (
-                                <div 
+                                <div
                                     key={service.id}
                                     className={`service-option ${formData.services.includes(service.id) ? 'selected' : ''}`}
                                     onClick={() => toggleService(service.id)}>
-                                    <input 
+                                    <input
                                         type="checkbox"
                                         checked={formData.services.includes(service.id)}
                                         onChange={() => {}}
@@ -846,7 +905,7 @@
 
                         <div style={{display: 'flex', gap: '1rem'}}>
                             <button className="btn btn-secondary" onClick={() => setStep(lookupState.matched ? 2 : 3)}>← Back</button>
-                            <button className="btn btn-primary" style={{flex: 1}} onClick={() => setStep(5)}>
+                            <button className="btn btn-primary" style={{flex: 1}} onClick={goToReviewStep}>
                                 Review →
                             </button>
                         </div>
@@ -872,7 +931,7 @@
                                 {submitError}
                             </div>
                         )}
-                        
+
                         <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '1rem', marginBottom: '1.5rem'}}>
                             <h3 style={{fontWeight: 'bold', marginBottom: '0.5rem'}}>Aircraft</h3>
                             <p>{formData.tailNumber} - {formData.aircraftType}</p>
@@ -925,7 +984,7 @@
 
                         <div style={{marginBottom: '2rem'}}>
                             <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer'}}>
-                                <input 
+                                <input
                                     type="checkbox"
                                     checked={formData.marketingConsent}
                                     onChange={(e) => setFormData({...formData, marketingConsent: e.target.checked})}
@@ -938,8 +997,8 @@
                         </div>
 
                         <div style={{display: 'flex', gap: '1rem'}}>
-                            <button className="btn btn-secondary" onClick={() => setStep(4)}>← Back</button>
-                            <button className="btn btn-primary" style={{flex: 1}} onClick={handleSubmit}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setStep(4)}>← Back</button>
+                            <button type="button" className="btn btn-primary" style={{flex: 1}} onClick={() => { handleSubmit(); }}>
                                 ✅ Confirm Check-In
                             </button>
                         </div>
@@ -956,7 +1015,7 @@
                             Check-In Complete!
                         </h2>
                         <div style={{marginBottom: '1rem', display: 'inline-block', padding: '0.6rem 1rem', borderRadius: '999px', background: backendStatus === 'connected' ? '#dcfce7' : '#fef3c7', color: backendStatus === 'connected' ? '#166534' : '#92400e', fontWeight: 700}}>
-                            {backendStatus === 'connected' ? 'Backend saved successfully' : 'Saved locally — shared sync pending'}
+                            {backendStatus === 'connected' ? 'Backend saved successfully' : 'Saved locally - shared sync pending'}
                         </div>
                         <p style={{fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem'}}>
                             Welcome to Mustang Aviation

@@ -56,8 +56,9 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
 
     try {
       await markOrderReadyForFrontDesk(order.id, {
+        status: 'ready',
+        completedAt: updatedOrder.completedAt,
         fuelActualGallons: finalActualFuel,
-        fuelQuantity: finalActualFuel,
         completionNotes: completionNotes || '',
       });
       onBack && onBack();
@@ -136,8 +137,8 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
               ) : (
                 <div className="text-sm text-gray-600 mt-2">No extra services requested.</div>
               )}
-              {order.hangar && (
-                <div className="text-sm text-gray-700 mt-3"><span className="font-semibold">Hangar:</span> {order.hangar}</div>
+              {order.hangarOvernight && (
+                <div className="text-sm text-gray-700 mt-3"><span className="font-semibold">Parking:</span> {order.hangarOvernight === 'yes' ? 'Hangar overnight requested' : 'Outside parking requested'}</div>
               )}
             </div>
 

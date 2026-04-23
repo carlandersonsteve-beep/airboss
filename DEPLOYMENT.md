@@ -23,6 +23,7 @@ Use a simple Node-friendly host first:
 - `DATABASE_URL`
 - `SESSION_SECRET`
 - optional: `PORT`
+- optional: `HOST` (defaults to `0.0.0.0` when `DATABASE_URL` is set, otherwise `127.0.0.1` for local dev)
 
 ## Recommended target
 Use the included `render.yaml` for the fastest first hosted deployment.
@@ -32,6 +33,8 @@ There is also a Render walkthrough in `docs/DEPLOY_RENDER.md`.
 ```bash
 npm run dev:server
 ```
+
+On startup in shared/Postgres mode, the server now applies `schemaSql` before listening so a fresh deploy can initialize required tables automatically.
 
 ## Routes
 - `/` → GroundCore ops app

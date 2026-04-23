@@ -173,6 +173,12 @@
 
         const API_BASE_URL = `${window.location.protocol === 'file:' ? 'http://localhost:8787' : window.location.origin}`;
         const SESSION_KEY = 'groundcore_session';
+        const isFileProtocol = window.location.protocol === 'file:';
+
+        function isLocalDevEnvironment() {
+            const host = window.location.hostname;
+            return isFileProtocol || host === 'localhost' || host === '127.0.0.1';
+        }
 
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', async () => {
@@ -213,6 +219,10 @@
 
             bootstrap() {
                 return this.request('/bootstrap');
+            },
+
+            config() {
+                return this.request('/config');
             },
 
             createCustomer(customer) {
@@ -289,6 +299,12 @@
                     body: JSON.stringify({ username, currentPassword, newPassword }),
                 });
             },
+
+            logout() {
+                return this.request('/logout', {
+                    method: 'POST',
+                });
+            },
         };
 
         const runtime = window.AirBossRuntime;
@@ -309,6 +325,7 @@
         const getTodayOrders = (orders, now = new Date()) => runtime.orderSelectors.today(orders, now);
         const getActiveRampOrders = (orders, now = new Date()) => runtime.orderSelectors.activeRamp(orders, now);
         const getReadyForFrontDeskOrders = (orders) => runtime.orderSelectors.readyForFrontDesk(orders);
+        const getGeneralChatMessages = (messages) => (messages || []).filter((message) => !message.orderId);
         const getClosedOrders = (orders) => runtime.orderSelectors.closed(orders);
         const getWeekOrders = (orders, now = new Date()) => runtime.orderSelectors.thisWeek(orders, now);
         const getFuelTotal = (orders, fuelType) => (
@@ -343,8 +360,13 @@
             const [lastReadChat, setLastReadChat] = useState(() => Storage.get('fbo_last_read_chat') || 0);
             const [orderThreadReadState, setOrderThreadReadState] = useState(() => Storage.get('fbo_order_thread_reads') || { RAMP: {}, OFFICE: {} });
             const [backendMode, setBackendMode] = useState('unknown');
+            const [appMode, setAppMode] = useState(isLocalDevEnvironment() ? 'local-dev' : 'shared');
+            const [backendWarning, setBackendWarning] = useState('');
             const pendingWritesRef = React.useRef(0);
-            const markBackendWriteSuccess = () => setBackendMode((current) => current === 'local' ? 'local' : 'postgres');
+            const markBackendWriteSuccess = () => {
+                setBackendMode((current) => current === 'local' ? 'local' : 'postgres');
+                setBackendWarning('');
+            };
             const currentRole = session?.role || 'OFFICE';
 
             // === HORSE NOTIFICATION SOUND ===
@@ -391,8 +413,12 @@
 
             // === MESSAGING FEATURE END ===
 
-            // Load local cache immediately; sync bootstrap only when signed in
+            // Load local cache immediately in local dev. In shared mode, avoid presenting browser cache as authoritative truth.
             useEffect(() => {
+                if (!isLocalDevEnvironment()) {
+                    return;
+                }
+
                 const savedCustomers = Storage.get('fbo_customers') || [];
                 const savedOrders = Storage.get('fbo_orders') || [];
                 const savedTickets = Storage.get('fbo_tickets') || [];
@@ -409,9 +435,21 @@
             useEffect(() => {
                 let cancelled = false;
 
+                const loadConfig = async () => {
+                    try {
+                        const config = await api.config();
+                        if (cancelled) return;
+                        setAppMode(config.appMode || (isLocalDevEnvironment() ? 'local-dev' : 'shared'));
+                    } catch (error) {
+                        if (cancelled) return;
+                        setAppMode(isLocalDevEnvironment() ? 'local-dev' : 'shared');
+                    }
+                };
+
                 const loadBootstrap = async () => {
                     if (!session?.token) {
                         setBackendMode('signin-required');
+                        setBackendWarning('');
                         return;
                     }
                     if (pendingWritesRef.current > 0) return;
@@ -419,6 +457,7 @@
                         const data = await api.bootstrap();
                         if (cancelled) return;
                         setBackendMode(data.mode || 'postgres');
+                        setBackendWarning('');
                         setCustomers(data.customers || []);
                         setOrders(data.orders || []);
                         setTickets(data.alerts || []);
@@ -426,41 +465,53 @@
                         setOrderThreadReadState(data.threadReads || { RAMP: {}, OFFICE: {} });
                     } catch (error) {
                         if (cancelled) return;
-                        console.log('GroundCore backend bootstrap unavailable, using local cache', error.message);
-                        setBackendMode('local-fallback');
+                        console.log('GroundCore bootstrap unavailable', error.message);
+                        if (appMode === 'local-dev') {
+                            setBackendMode('local-fallback');
+                            setBackendWarning('Backend unavailable — local cache is active for development only.');
+                        } else {
+                            setBackendMode('shared-unavailable');
+                            setBackendWarning('Shared backend unavailable — data may be stale and new writes should not be trusted until connectivity is restored.');
+                        }
                     }
                 };
 
+                loadConfig();
                 loadBootstrap();
-                const intervalId = session?.token ? window.setInterval(loadBootstrap, 2000) : null;
+                const intervalId = session?.token ? window.setInterval(loadBootstrap, 5000) : null;
 
                 return () => {
                     cancelled = true;
                     if (intervalId) window.clearInterval(intervalId);
                 };
-            }, [session?.token]);
+            }, [session?.token, appMode]);
 
-            // Save data when it changes
+            // Save browser cache only in local dev.
             useEffect(() => {
+                if (appMode !== 'local-dev') return;
                 Storage.set('fbo_customers', customers);
-            }, [customers]);
+            }, [customers, appMode]);
 
             useEffect(() => {
+                if (appMode !== 'local-dev') return;
                 Storage.set('fbo_orders', orders);
-            }, [orders]);
+            }, [orders, appMode]);
 
             useEffect(() => {
+                if (appMode !== 'local-dev') return;
                 Storage.set('fbo_tickets', tickets);
-            }, [tickets]);
+            }, [tickets, appMode]);
 
             // === MESSAGING FEATURE START ===
             useEffect(() => {
+                if (appMode !== 'local-dev') return;
                 Storage.set('fbo_messages', messages);
-            }, [messages]);
+            }, [messages, appMode]);
 
             useEffect(() => {
+                if (appMode !== 'local-dev') return;
                 Storage.set('fbo_order_thread_reads', orderThreadReadState);
-            }, [orderThreadReadState]);
+            }, [orderThreadReadState, appMode]);
 
             const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => (
                 runtime.messageService.createMessagePayload({ text, senderRole: sender, orderId, tailNumber })
@@ -482,7 +533,10 @@
                         setMessages(prev => prev.map(m => m.id === messageRecord.id ? response.item : m));
                         markBackendWriteSuccess();
                     } catch (error) {
-                        console.log('Order message backend sync failed, kept locally', error.message);
+                        console.log('Order message backend sync failed', error.message);
+                        setBackendWarning(appMode === 'local-dev'
+                            ? 'Order message sync failed — kept locally for development only.'
+                            : 'Order message sync failed — shared backend did not confirm persistence.');
                     }
                 } else {
                     // General chat message — persist to server so bootstrap doesn't wipe it
@@ -494,7 +548,10 @@
                         setMessages(prev => prev.map(m => m.id === messageRecord.id ? response.item : m));
                         markBackendWriteSuccess();
                     } catch (error) {
-                        console.log('General message backend sync failed, kept locally', error.message);
+                        console.log('General message backend sync failed', error.message);
+                        setBackendWarning(appMode === 'local-dev'
+                            ? 'General chat sync failed — kept locally for development only.'
+                            : 'General chat sync failed — shared backend did not confirm persistence.');
                     }
                 }
                 return messageRecord;
@@ -548,9 +605,17 @@
                 }
             };
 
-            const handleLogout = () => {
-                setSession(null);
-                Storage.remove(SESSION_KEY);
+            const handleLogout = async () => {
+                try {
+                    if (session?.token) {
+                        await api.logout();
+                    }
+                } catch (error) {
+                    console.log('Logout request failed', error.message);
+                } finally {
+                    setSession(null);
+                    Storage.remove(SESSION_KEY);
+                }
             };
 
             const markOrderThreadRead = async (role, orderId) => {
@@ -567,7 +632,10 @@
                     await api.markOrderThreadRead(orderId, role, now);
                     markBackendWriteSuccess();
                 } catch (error) {
-                    console.log('Thread read sync failed, kept locally', error.message);
+                    console.log('Thread read sync failed', error.message);
+                    if (appMode !== 'local-dev') {
+                        setBackendWarning('Thread read sync failed — unread state may be stale until shared connectivity is restored.');
+                    }
                 }
             };
 
@@ -601,7 +669,10 @@
                     setCustomers(prev => prev.map(c => c.id === newCustomer.id ? response.item : c));
                     markBackendWriteSuccess();
                 } catch (error) {
-                    console.log('Customer backend sync failed, kept locally', error.message);
+                    console.log('Customer backend sync failed', error.message);
+                    setBackendWarning(appMode === 'local-dev'
+                        ? 'Customer save failed to sync — kept locally for development only.'
+                        : 'Customer save failed — shared backend did not confirm persistence.');
                 }
                 return newCustomer;
             };
@@ -642,7 +713,10 @@
                     markBackendWriteSuccess();
                     return response.item;
                 } catch (error) {
-                    console.log('Order backend sync failed, kept locally', error.message);
+                    console.log('Order backend sync failed', error.message, error.details || error.detail || error);
+                    setBackendWarning(appMode === 'local-dev'
+                        ? 'Order sync failed — local development state kept.'
+                        : `Order sync failed — ${error.detail || error.message || 'shared backend did not confirm persistence.'}`);
                     return updatedOrder;
                 } finally {
                     pendingWritesRef.current = Math.max(0, pendingWritesRef.current - 1);
@@ -672,7 +746,10 @@
                     setOrders(prev => prev.map(o => o.id === newOrder.id ? response.item : o));
                     markBackendWriteSuccess();
                 } catch (error) {
-                    console.log('Order backend sync failed, kept locally', error.message);
+                    console.log('Order backend sync failed', error.message);
+                    setBackendWarning(appMode === 'local-dev'
+                        ? 'Order creation failed to sync — kept locally for development only.'
+                        : 'Order creation failed — shared backend did not confirm persistence.');
                 }
             };
 
@@ -695,7 +772,10 @@
                     setTickets(prev => prev.map(t => t.id === newTicket.id ? response.item : t));
                     markBackendWriteSuccess();
                 } catch (error) {
-                    console.log('Alert backend sync failed, kept locally', error.message);
+                    console.log('Alert backend sync failed', error.message);
+                    setBackendWarning(appMode === 'local-dev'
+                        ? 'Alert sync failed — kept locally for development only.'
+                        : 'Alert sync failed — shared backend did not confirm persistence.');
                 }
                 return newTicket;
             };
@@ -707,7 +787,10 @@
                     setTickets(prev => prev.map(t => t.id === ticketId ? response.item : t));
                     markBackendWriteSuccess();
                 } catch (error) {
-                    console.log('Alert resolve sync failed, kept locally', error.message);
+                    console.log('Alert resolve sync failed', error.message);
+                    if (appMode !== 'local-dev') {
+                        setBackendWarning('Alert resolve sync failed — shared backend may still show this alert as pending.');
+                    }
                 }
             };
 
@@ -718,6 +801,9 @@
                     markBackendWriteSuccess();
                 } catch (error) {
                     console.log('Alert delete sync failed after local removal', error.message);
+                    if (appMode !== 'local-dev') {
+                        setBackendWarning('Alert delete sync failed — shared backend may still contain this alert.');
+                    }
                 }
             };
 
@@ -825,6 +911,11 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 <div className="text-gray-600">Mustang Aviation operations access</div>
                                 <div className="text-xs text-gray-500 mt-2">Sign in to the right surface and get straight to work.</div>
                             </div>
+                            {backendWarning && (
+                                <div className={`mb-4 px-4 py-3 rounded-lg border text-sm font-medium ${appMode === 'local-dev' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                                    {backendWarning}
+                                </div>
+                            )}
                             {authError && (
                                 <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
                                     {authError}
@@ -916,6 +1007,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 );
             }
 
+            const frontDeskReadyCount = getReadyForFrontDeskOrders(orders).length;
+            const generalChatMessages = getGeneralChatMessages(messages);
+
             return (
                 <div className="min-h-screen">
                     {/* Header */}
@@ -960,9 +1054,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             } ${!roleAllows(currentRole, 'office') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             FRONT DESK
-                                            {getTodayOrders(getReadyForFrontDeskOrders(orders)).length > 0 && (
+                                            {frontDeskReadyCount > 0 && (
                                                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                                    {getTodayOrders(getReadyForFrontDeskOrders(orders)).length}
+                                                    {frontDeskReadyCount}
                                                 </span>
                                             )}
                                         </button>
@@ -977,9 +1071,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             } ${!roleAllows(currentRole, 'chat') ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         >
                                             💬 CHAT
-                                            {messages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length > 0 && view !== 'chat' && (
+                                            {generalChatMessages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length > 0 && view !== 'chat' && (
                                                 <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                                    {messages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length}
+                                                    {generalChatMessages.filter(m => new Date(m.createdAt).getTime() > lastReadChat).length}
                                                 </span>
                                             )}
                                         </button>
@@ -1001,7 +1095,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                     
                                     <div className="hidden md:flex gap-2 items-center">
                                         <div className="text-xs text-white/80 font-medium px-3 py-2 rounded-lg bg-black/20">
-                                            {session.displayName || session.username} · {currentRole}
+                                            {session.displayName || session.username} · {currentRole} · {appMode === 'local-dev' ? 'LOCAL DEV' : 'SHARED'}
                                         </div>
 
                                         <button
@@ -1020,9 +1114,20 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                     {/* Main Content */}
                     <main className="container mx-auto px-4 py-8">
                         <div className="card-wood rounded-xl p-6">
-                        <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium ${backendMode === 'postgres' ? 'bg-green-50 text-green-800 border border-green-200' : backendMode === 'local-fallback' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                            {backendMode === 'postgres' ? 'Shared backend connected — live Postgres-backed sync active for bootstrap, order threads, and alerts.' : backendMode === 'local-fallback' ? 'Backend unavailable — using local browser data fallback.' : 'Checking backend connection...'}
+                        <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium ${backendMode === 'postgres' ? 'bg-green-50 text-green-800 border border-green-200' : backendMode === 'local-fallback' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' : backendMode === 'shared-unavailable' ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
+                            {backendMode === 'postgres'
+                                ? 'Shared backend connected — live Postgres-backed sync active.'
+                                : backendMode === 'local-fallback'
+                                    ? 'Backend unavailable — local browser cache is active for development only.'
+                                    : backendMode === 'shared-unavailable'
+                                        ? 'Shared backend unavailable — do not trust unsynced writes until connectivity is restored.'
+                                        : 'Checking backend connection...'}
                         </div>
+                        {backendWarning && (
+                            <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium border ${appMode === 'local-dev' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                                {backendWarning}
+                            </div>
+                        )}
                         {view === 'ramp' && (
                             <RampView 
                                 customers={customers}
@@ -1062,9 +1167,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         {/* === MESSAGING FEATURE START === */}
                         {view === 'chat' && (
                             <ChatView
-                                messages={messages}
-                                addMessage={(text) => addMessage(text, 'OFFICE', null, null)}
-                                senderRole="OFFICE"
+                                messages={generalChatMessages}
+                                addMessage={(text) => addMessage(text, currentRole, null, null)}
+                                senderRole={currentRole}
                                 onOpen={markChatRead}
                             />
                         )}
@@ -1079,16 +1184,18 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
                     {/* Modals */}
                     {showNewCustomer && (
-                        <CustomerModal
-                            onClose={() => setShowNewCustomer(false)}
-                            onSave={(customer) => {
-                                const newCust = addCustomer(customer);
-                                setShowNewCustomer(false);
-                                if (showNewOrder) {
-                                    setSelectedCustomer(newCust);
-                                }
-                            }}
-                        />
+                        <div className="fixed inset-0 z-[70]">
+                            <CustomerModal
+                                onClose={() => setShowNewCustomer(false)}
+                                onSave={(customer) => {
+                                    const newCust = addCustomer(customer);
+                                    setShowNewCustomer(false);
+                                    if (showNewOrder) {
+                                        setSelectedCustomer(newCust);
+                                    }
+                                }}
+                            />
+                        </div>
                     )}
 
                     {showNewOrder && (
@@ -1755,15 +1862,21 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 departureDate: '',
                 departureTime: ''
             });
+            const [formError, setFormError] = useState('');
 
             const serviceOptions = ['GPU', 'Lavatory', 'Water', 'Catering', 'De-icing', 'Oxygen', 'Tow', 'Coffee', 'Ice'];
 
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (!formData.customerId) {
-                    alert('Please select a customer');
+                    setFormError('Please select a customer.');
                     return;
                 }
+                if (formData.fuelType && !(parseFloat(formData.fuelQuantity) > 0)) {
+                    setFormError('Enter requested fuel gallons greater than 0 when a fuel type is selected.');
+                    return;
+                }
+                setFormError('');
                 onSave(formData);
             };
 
@@ -1783,6 +1896,11 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                             <h3 className="text-2xl font-bold mb-6 text-gray-800">Aircraft Arrival / New Order</h3>
                             
                             <form onSubmit={handleSubmit} className="space-y-4">
+                                {formError && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                                        {formError}
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Customer / Aircraft *
@@ -1803,7 +1921,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         </select>
                                         <button
                                             type="button"
-                                            onClick={onNewCustomer}
+                                            onClick={() => {
+                                                setFormError('');
+                                                onNewCustomer();
+                                            }}
                                             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
                                         >
                                             + New
@@ -1820,10 +1941,14 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                             </label>
                                             <select
                                                 value={formData.fuelType}
-                                                onChange={(e) => setFormData({...formData, fuelType: e.target.value})}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    fuelType: e.target.value,
+                                                    fuelQuantity: e.target.value ? formData.fuelQuantity : ''
+                                                })}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             >
-                                                <option value="">None</option>
+                                                <option value="">No Fuel Required</option>
                                                 <option value="JET-A">JET-A</option>
                                                 <option value="100LL">100LL</option>
                                             </select>

@@ -3,7 +3,7 @@
 ## App Structure
 - `index.html` — main ops interface (ramp + front desk views, internal chat, order management)
 - `kiosk.html` — customer self-check-in kiosk
-- `server/` — Node HTTP backend, local file store (no DB yet — Postgres wiring exists but not deployed)
+- `server/` — Node HTTP backend with local file store for local dev and Postgres/shared mode when `DATABASE_URL` is configured
 - `src/` — refactor scaffold (runtime bridge, extracted UI components, domain/service layers)
 - `assets/` — horse.mp3, icons
 
@@ -26,17 +26,15 @@ Starts server at http://localhost:8792. No `.env` required for local mode.
 - First-login forced password change flow
 
 ## Pilot Accounts (local)
-| Username | Role   | Default Password        |
-|----------|--------|-------------------------|
-| steve    | ADMIN  | Airboss-Steve-Prod-2!   |
-| tacie    | OFFICE | (forced change on login)|
-| ramp     | RAMP   | (forced change on login)|
-| kiosk    | KIOSK  | (forced change on login)|
+Local pilot users exist for development/testing, but visible/default credentials should not be exposed in the product UI for real pilot use.
+Named pilot accounts should be provisioned intentionally before rollout.
 
 ## Known State
-- Running entirely off local Node server + file store
-- NOT deployed to Render yet — all testing is on localhost
-- Postgres schema exists but only activates with DATABASE_URL set
+- Local development runs off local Node server + file store when `DATABASE_URL` is not set
+- Shared mode activates when `DATABASE_URL` is configured
+- Hosted/shared mode now expects the shared backend to be authoritative and surfaces degraded backend state instead of silently relying on browser-local truth
+- General chat persistence is supported in the shared database path
+- NOT deployed to Render yet — all testing is still primarily on localhost
 - WORKLOG.md is stale — git log is the source of truth for recent changes
 
 ## Next Milestone
