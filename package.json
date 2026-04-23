@@ -11,7 +11,8 @@
     "local:stop": "bash scripts/local-server.sh stop",
     "local:restart": "bash scripts/local-server.sh restart",
     "local:status": "bash scripts/local-server.sh status",
-    "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js"
+    "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js",
+    "db:seed-users": "node --env-file-if-exists=.env server/scripts/seed-users.js"
   },
   "engines": {
     "node": ">=22"

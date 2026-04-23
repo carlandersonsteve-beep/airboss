@@ -407,6 +407,8 @@ function sanitizeCheckInMatch(match) {
       tailNumber: match.customer.tailNumber || '',
       aircraftType: match.customer.aircraftType || '',
       pilotName: match.customer.pilotName || '',
+      email: match.customer.email || '',
+      phone: match.customer.phone || '',
       company: match.customer.company || '',
     },
   };

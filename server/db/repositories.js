@@ -132,12 +132,30 @@ export async function createCustomer(payload) {
   requireField(payload.id, 'id');
   requireField(payload.tailNumber, 'tailNumber');
 
+  const normalizedTail = normalizeTailNumber(payload.tailNumber);
+  const shouldCanonicalizeByTail = payload.source === 'kiosk';
+
   if (!env.databaseUrl) {
     const store = getLocalStore();
+
+    if (shouldCanonicalizeByTail) {
+      const existing = (store.customers || [])
+        .slice()
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .find((customer) => normalizeTailNumber(customer.tailNumber) === normalizedTail);
+
+      if (existing) {
+        const merged = mergeCustomerRecords(existing, payload);
+        Object.assign(existing, merged);
+        saveLocalStore(store);
+        return existing;
+      }
+    }
+
     const item = {
       id: payload.id,
       createdAt: payload.createdAt || new Date().toISOString(),
-      tailNumber: payload.tailNumber,
+      tailNumber: normalizedTail || payload.tailNumber,
       aircraftType: payload.aircraftType || null,
       ownerName: payload.ownerName || null,
       pilotName: payload.pilotName || null,
@@ -154,6 +172,56 @@ export async function createCustomer(payload) {
     return item;
   }
 
+  if (shouldCanonicalizeByTail) {
+    const existing = await query(`
+      select *
+      from customers
+      where upper(regexp_replace(coalesce(tail_number, ''), '[^A-Za-z0-9]', '', 'g')) = $1
+         or upper(regexp_replace(coalesce(tail_number, ''), '[^A-Za-z0-9]', '', 'g')) = regexp_replace($1, '^N', '')
+      order by created_at desc
+      limit 1
+    `, [normalizedTail]);
+
+    const existingRow = existing.rows[0];
+    if (existingRow) {
+      const current = mapCustomerRow(existingRow);
+      const merged = mergeCustomerRecords(current, {
+        ...payload,
+        tailNumber: normalizedTail || payload.tailNumber,
+      });
+
+      const result = await query(`
+        update customers
+        set tail_number = $2,
+            aircraft_type = $3,
+            owner_name = $4,
+            pilot_name = $5,
+            phone = $6,
+            email = $7,
+            company = $8,
+            home_base = $9,
+            notes = $10,
+            source = $11
+        where id = $1
+        returning *
+      `, [
+        current.id,
+        merged.tailNumber,
+        merged.aircraftType,
+        merged.ownerName,
+        merged.pilotName,
+        merged.phone,
+        merged.email,
+        merged.company,
+        merged.homeBase,
+        merged.notes,
+        merged.source,
+      ]);
+
+      return mapCustomerRow(result.rows[0]);
+    }
+  }
+
   const result = await query(`
     insert into customers (
       id, created_at, tail_number, aircraft_type, owner_name, pilot_name, phone, email, company, home_base, notes, source
@@ -164,7 +232,7 @@ export async function createCustomer(payload) {
   `, [
     payload.id,
     payload.createdAt || null,
-    payload.tailNumber,
+    normalizedTail || payload.tailNumber,
     payload.aircraftType || null,
     payload.ownerName || null,
     payload.pilotName || null,
@@ -806,6 +874,30 @@ function validateOrderPatch(currentOrder, patch) {
       { currentStatus: currentOrder.status, nextStatus: patch.status }
     );
   }
+}
+
+function mergeCustomerRecords(current, incoming) {
+  const pickPreferred = (existingValue, incomingValue, { allowOverwrite = true } = {}) => {
+    const existing = existingValue ?? null;
+    const incomingClean = incomingValue ?? null;
+    if (incomingClean === null || incomingClean === '') return existing;
+    if (existing === null || existing === '') return incomingClean;
+    return allowOverwrite ? incomingClean : existing;
+  };
+
+  return {
+    ...current,
+    tailNumber: normalizeTailNumber(incoming.tailNumber || current.tailNumber),
+    aircraftType: pickPreferred(current.aircraftType, incoming.aircraftType),
+    ownerName: pickPreferred(current.ownerName, incoming.ownerName, { allowOverwrite: false }),
+    pilotName: pickPreferred(current.pilotName, incoming.pilotName),
+    phone: pickPreferred(current.phone, incoming.phone),
+    email: pickPreferred(current.email, incoming.email),
+    company: pickPreferred(current.company, incoming.company),
+    homeBase: pickPreferred(current.homeBase, incoming.homeBase, { allowOverwrite: false }),
+    notes: pickPreferred(current.notes, incoming.notes, { allowOverwrite: false }),
+    source: pickPreferred(current.source, incoming.source),
+  };
 }
 
 function mapCustomerRow(row) {
