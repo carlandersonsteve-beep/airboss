@@ -200,19 +200,28 @@ router.post('/checkin/customers', async ({ body, req }) => {
   }
   return {
     ok: true,
-    item: await createCustomer({ ...payload, source: 'kiosk' }),
+    item: await createCustomer({
+      ...payload,
+      id: payload.id || crypto.randomUUID(),
+      source: 'kiosk',
+    }),
   };
 });
 
 router.post('/checkin/orders', async ({ body, req }) => {
   requireCheckInSession(req);
   const payload = body || {};
-  if (payload.source && payload.source !== 'kiosk-checkin') {
+  if (payload.source && payload.source !== 'kiosk' && payload.source !== 'kiosk-checkin') {
     throw new AppError('Invalid check-in order source', 400);
   }
   return {
     ok: true,
-    item: await createOrder({ ...payload, source: 'kiosk-checkin' }),
+    item: await createOrder({
+      ...payload,
+      id: payload.id || crypto.randomUUID(),
+      status: payload.status || 'pending',
+      source: 'kiosk-checkin',
+    }),
   };
 });
 

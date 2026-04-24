@@ -280,6 +280,8 @@ export async function createOrder(payload) {
       fuelType: payload.fuelType || null,
       fuelRequestedGallons: normalizeFuelValue(payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null),
       fuelActualGallons: normalizeFuelValue(payload.fuelActualGallons ?? null),
+      fuelMeterStart: normalizeFuelValue(payload.fuelMeterStart ?? null),
+      fuelMeterEnd: normalizeFuelValue(payload.fuelMeterEnd ?? null),
       hangarOvernight: payload.hangarOvernight || null,
       services: payload.services || [],
       notes: payload.notes || null,
@@ -302,14 +304,14 @@ export async function createOrder(payload) {
   const result = await query(`
     insert into orders (
       id, customer_id, created_at, status, status_updated_at, fuel_type,
-      fuel_requested_gallons, fuel_actual_gallons, hangar_overnight, services,
+      fuel_requested_gallons, fuel_actual_gallons, fuel_meter_start, fuel_meter_end, hangar_overnight, services,
       notes, completion_notes, completed_at, arrival_at, departure_date,
       departure_time, purpose, source, pre_departure_sent, pre_departure_sent_at
     ) values (
       $1, $2, coalesce($3, now()), $4, $5, $6,
-      $7, $8, $9, $10::jsonb,
-      $11, $12, $13, $14, $15,
-      $16, $17, $18, coalesce($19, false), $20
+      $7, $8, $9, $10, $11, $12::jsonb,
+      $13, $14, $15, $16, $17,
+      $18, $19, $20, coalesce($21, false), $22
     )
     returning *
   `, [
@@ -321,6 +323,8 @@ export async function createOrder(payload) {
     payload.fuelType || null,
     normalizeFuelValue(payload.fuelRequestedGallons ?? payload.fuelQuantity ?? null),
     normalizeFuelValue(payload.fuelActualGallons ?? null),
+    normalizeFuelValue(payload.fuelMeterStart ?? null),
+    normalizeFuelValue(payload.fuelMeterEnd ?? null),
     payload.hangarOvernight || null,
     JSON.stringify(payload.services || []),
     payload.notes || null,
@@ -382,6 +386,8 @@ export async function updateOrder(orderId, patch = {}) {
     fuelType: 'fuel_type',
     fuelRequestedGallons: 'fuel_requested_gallons',
     fuelActualGallons: 'fuel_actual_gallons',
+    fuelMeterStart: 'fuel_meter_start',
+    fuelMeterEnd: 'fuel_meter_end',
     hangarOvernight: 'hangar_overnight',
     notes: 'notes',
     completionNotes: 'completion_notes',
@@ -398,7 +404,7 @@ export async function updateOrder(orderId, patch = {}) {
   for (const [key, column] of Object.entries(mappings)) {
     if (normalizedPatch[key] !== undefined) {
       fields.push(`${column} = $${index++}`);
-      if (key === 'fuelRequestedGallons' || key === 'fuelActualGallons') {
+      if (key === 'fuelRequestedGallons' || key === 'fuelActualGallons' || key === 'fuelMeterStart' || key === 'fuelMeterEnd') {
         values.push(normalizeFuelValue(normalizedPatch[key]));
       } else {
         values.push(normalizedPatch[key]);
@@ -927,6 +933,8 @@ function mapOrderRow(row) {
     fuelType: row.fuel_type,
     fuelRequestedGallons: row.fuel_requested_gallons,
     fuelActualGallons: row.fuel_actual_gallons,
+    fuelMeterStart: row.fuel_meter_start,
+    fuelMeterEnd: row.fuel_meter_end,
     hangarOvernight: row.hangar_overnight,
     services: row.services || [],
     notes: row.notes,

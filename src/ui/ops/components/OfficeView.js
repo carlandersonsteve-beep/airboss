@@ -19,7 +19,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const deps = window.AirBossComponentBridge.requireDeps(
     'OfficeView',
     window.AirBossDeps || {},
-    ['isClosedStatus', 'isReadyStatus', 'getReadyForFrontDeskOrders', 'getClosedOrders', 'getTodayOrders', 'getWeekOrders', 'getFuelTotal', 'OrderMessageThread']
+    ['isClosedStatus', 'isReadyStatus', 'getReadyForFrontDeskOrders', 'getClosedOrders', 'getTodayOrders', 'getWeekOrders', 'getFuelTotal', 'getActiveRampOrders', 'OrderMessageThread']
   );
   const {
     isClosedStatus,
@@ -29,6 +29,7 @@ window.AirBossComponents.OfficeView = function OfficeView({
     getTodayOrders,
     getWeekOrders,
     getFuelTotal,
+    getActiveRampOrders,
     OrderMessageThread,
   } = deps;
 
@@ -38,7 +39,9 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const [confirmingSentOrderId, setConfirmingSentOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
+  const activeServiceOrders = getActiveRampOrders(orders);
   const unreadReadyThreads = readyToBillOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
+  const unreadActiveThreads = activeServiceOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -100,10 +103,44 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
     return readyQueue;
   })();
 
-  const totalJetA = Math.round(getFuelTotal(filteredOrders, 'JET-A'));
-  const total100LL = Math.round(getFuelTotal(filteredOrders, '100LL'));
+  const fuelDashboardOrders = (() => {
+    if (filter === 'archive') return getClosedOrders(orders);
+    if (filter === 'today') return getTodayOrders(orders).filter(order => !isClosedStatus(order.status) || Number(order.fuelActualGallons ?? order.fuelRequestedGallons ?? order.fuelQuantity ?? 0) > 0);
+    if (filter === 'week') return getWeekOrders(orders).filter(order => !isClosedStatus(order.status) || Number(order.fuelActualGallons ?? order.fuelRequestedGallons ?? order.fuelQuantity ?? 0) > 0);
+    return (orders || []).filter(order => !isClosedStatus(order.status) || Number(order.fuelActualGallons ?? order.fuelRequestedGallons ?? order.fuelQuantity ?? 0) > 0);
+  })();
+
+  const totalJetA = Math.round(getFuelTotal(fuelDashboardOrders, 'JET-A'));
+  const total100LL = Math.round(getFuelTotal(fuelDashboardOrders, '100LL'));
   const finalizeOrder = orders.find(order => order.id === finalizeOrderId) || null;
   const finalizeCustomer = finalizeOrder ? customers.find(c => c.id === finalizeOrder.customerId) : null;
+
+  const formatDepartureDate = (value) => {
+    if (!value) return 'Not scheduled';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatDepartureTime = (value) => {
+    if (!value) return 'time not set';
+    const [rawHour, minute] = String(value).split(':');
+    const hour = Number(rawHour);
+    if (!Number.isFinite(hour) || minute === undefined) return String(value);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    return `${(hour % 12) || 12}:${minute} ${ampm}`;
+  };
+
+  const formatDepartureSummary = (dateValue, timeValue) => {
+    if (!dateValue) return 'Not scheduled';
+    const dateLabel = formatDepartureDate(dateValue);
+    const timeLabel = formatDepartureTime(timeValue);
+    return `${dateLabel} • Departure Time ${timeLabel}`;
+  };
 
   return (
     <div>
@@ -165,8 +202,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
           <div className="text-3xl font-bold text-orange-600 mt-2">{filter === 'archive' ? 0 : filteredOrders.length}</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-red-500">
-          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Ramp Threads</div>
-          <div className="text-3xl font-bold text-red-600 mt-2">{unreadReadyThreads}</div>
+          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Service Chats</div>
+          <div className="text-3xl font-bold text-red-600 mt-2">{unreadActiveThreads}</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-green-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Jet-A ({filter})</div>
@@ -180,6 +217,65 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Pending Alerts</div>
           <div className="text-3xl font-bold text-yellow-600 mt-2">{pendingTickets.length}</div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Active Service Chat</h3>
+            <p className="text-sm text-gray-500 mt-1">Live ramp ↔ desk coordination by aircraft tail number. This replaces radio chatter during service.</p>
+          </div>
+          <div className="text-sm font-bold text-red-600">{activeServiceOrders.length} active aircraft</div>
+        </div>
+
+        {activeServiceOrders.length === 0 ? (
+          <div className="text-sm text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300 px-4 py-4 mb-6">
+            No aircraft are currently in active service.
+          </div>
+        ) : (
+          <div className="space-y-4 mb-6">
+            {activeServiceOrders.map(order => {
+              const customer = customers.find(c => c.id === order.customerId);
+              const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
+              const requestedFuel = order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
+              return (
+                <div key={`active-${order.id}`} className="border border-blue-200 rounded-xl p-4 bg-blue-50/40">
+                  <div className="flex justify-between items-start gap-3 mb-3 flex-wrap">
+                    <div>
+                      <div className="font-bold text-lg text-blue-900">{customer?.tailNumber || order.tailNumber || 'Unknown Tail'}</div>
+                      <div className="text-sm text-gray-700">{customer?.aircraftType || order.aircraft || 'Unknown Type'} • {customer?.pilotName || customer?.ownerName || order.customerName || 'Unknown customer'}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {order.fuelType ? `${order.fuelType} • ${requestedFuel} gal requested` : 'No fuel requested'}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {String(order.status).replace(/[-_]/g, ' ').toUpperCase()}
+                      </span>
+                      {unreadCount > 0 && (
+                        <div className="text-xs font-black px-2 py-1 rounded-full bg-red-600 text-white">{unreadCount} new</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <OrderMessageThread
+                    key={`active-thread-${order.id}-${orderMessages.length}`}
+                    order={order}
+                    messages={messages}
+                    addMessage={addMessage}
+                    senderRole="OFFICE"
+                    title={`Service Chat — ${customer?.tailNumber || order.tailNumber || 'Unknown Tail'}`}
+                    emptyLabel="No service messages yet. Use this to coordinate with the line crew instead of the radio."
+                    accent="blue"
+                    compact={true}
+                    unreadCount={unreadCount}
+                    onOpen={markOrderThreadRead}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -255,45 +351,21 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                   </div>
                 )}
 
-                {latestOrderMessage && (
-                  <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded mb-3 border border-gray-200">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <span className="font-medium">Latest Order Message:</span>{' '}
-                        <span className="font-bold">{latestOrderMessage.sender}:</span> {latestOrderMessage.text}
-                      </div>
-                      <button
-                        onClick={() => setExpandedThreadOrderId(showThread ? null : order.id)}
-                        className="text-xs bg-gray-800 hover:bg-black text-white px-3 py-1 rounded-full font-bold transition"
-                      >
-                        {showThread ? 'Hide Thread' : `Open Ramp Thread (${orderMessages.length})`}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!latestOrderMessage && isReadyStatus(order.status) && (
-                  <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded mb-3 border border-dashed border-gray-300">
-                    No order thread messages yet.
-                  </div>
-                )}
-
-                {showThread && (
-                  <div className="mb-3">
-                    <OrderMessageThread
-                      order={order}
-                      messages={messages}
-                      addMessage={addMessage}
-                      senderRole="OFFICE"
-                      title="Order Thread"
-                      emptyLabel="No messages on this aircraft yet."
-                      accent="blue"
-                      compact={true}
-                      unreadCount={unreadCount}
-                      onOpen={markOrderThreadRead}
-                    />
-                  </div>
-                )}
+                <div className="mb-3">
+                  <OrderMessageThread
+                    key={`ready-thread-${order.id}-${orderMessages.length}`}
+                    order={order}
+                    messages={messages}
+                    addMessage={addMessage}
+                    senderRole="OFFICE"
+                    title={`Aircraft Thread — ${customer?.tailNumber || order.tailNumber || 'Unknown Tail'}`}
+                    emptyLabel="No aircraft messages yet. Use this to coordinate instead of the radio."
+                    accent="blue"
+                    compact={true}
+                    unreadCount={unreadCount}
+                    onOpen={markOrderThreadRead}
+                  />
+                </div>
 
                 <div className="flex gap-2 flex-wrap">
                   {isReadyStatus(order.status) && (
@@ -335,9 +407,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="text-xs uppercase tracking-wide text-gray-500 font-bold">Departure</div>
-                  <div className="text-lg font-bold text-gray-900 mt-1">{finalizeOrder.departureDate || 'Not set'}</div>
-                  <div className="text-sm text-gray-600">{finalizeOrder.departureTime || 'No departure time set'}</div>
-                  <div className="text-sm text-gray-600 mt-1">Purpose: {finalizeOrder.purpose || 'Not specified'}</div>
+                  <div className="text-lg font-bold text-gray-900 mt-1">{formatDepartureSummary(finalizeOrder.departureDate, finalizeOrder.departureTime)}</div>
                 </div>
               </div>
 
@@ -379,12 +449,15 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
               </button>
               <button
                 onClick={() => {
+                  if (finalizeCustomer?.email) {
+                    generateCompletionEmail(finalizeOrder, finalizeCustomer);
+                  }
                   closeOrder(finalizeOrder.id);
                   setFinalizeOrderId(null);
                 }}
                 className="flex-1 bg-green-700 hover:bg-green-800 text-white px-6 py-3 rounded-lg font-bold transition"
               >
-                Finalize & Bill
+                Finalize & Draft Email
               </button>
             </div>
           </div>

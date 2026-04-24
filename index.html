@@ -107,12 +107,12 @@
 
     <script src="src/app/browserRuntime.js"></script>
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260322g"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260424c"></script>
     <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260327u"></script>
     <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260327u"></script>
     <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260327u"></script>
     <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260327u"></script>
+    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260424b"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -827,15 +827,21 @@
 
             const generateCompletionEmail = (order, customer) => {
                 const subject = `Service Complete - ${customer?.tailNumber || order.tailNumber} - Mustang Aviation`;
-                
-                let services = [];
+
+                const actualFuelGallons = order.fuelActualGallons ?? order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
+                const requestedFuelGallons = order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
+                const services = [];
+
                 if (order.fuelType) {
-                    services.push(`${order.fuelQuantity} gallons of ${order.fuelType}`);
+                    services.push(`${actualFuelGallons} gallons of ${order.fuelType}`);
+                    if (Number(actualFuelGallons) !== Number(requestedFuelGallons)) {
+                        services.push(`Requested fuel was ${requestedFuelGallons} gallons`);
+                    }
                 }
                 if (order.hangarOvernight === 'yes') {
-                    services.push(`Hangar overnight - Secured indoors`);
+                    services.push('Hangar overnight - secured indoors');
                 } else if (order.hangarOvernight === 'no') {
-                    services.push(`Outside tie-down parking`);
+                    services.push('Outside tie-down parking');
                 }
                 if (order.services && order.services.length > 0) {
                     const serviceLabels = {
@@ -845,22 +851,48 @@
                         'deice': 'De-icing',
                         'tiedown': 'Tiedown',
                         'crew_car': 'Crew Car',
-                        'coffee': '☕ Coffee',
-                        'ice': '🧊 Ice'
+                        'coffee': 'Coffee',
+                        'ice': 'Ice'
                     };
                     order.services.forEach(s => {
                         services.push(serviceLabels[s] || s);
                     });
                 }
 
+                const departureDateLabel = (() => {
+                    if (!order.departureDate) return null;
+                    const parsed = new Date(order.departureDate);
+                    if (Number.isNaN(parsed.getTime())) return String(order.departureDate);
+                    return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                })();
+
+                const departureTimeLabel = (() => {
+                    if (!order.departureTime) return null;
+                    const [rawHour, minute] = String(order.departureTime).split(':');
+                    const hour = Number(rawHour);
+                    if (!Number.isFinite(hour) || minute === undefined) return String(order.departureTime);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    return `${(hour % 12) || 12}:${minute} ${ampm}`;
+                })();
+
+                const departureLine = departureDateLabel
+                    ? `Scheduled departure: ${departureDateLabel}${departureTimeLabel ? ` at ${departureTimeLabel}` : ''}`
+                    : null;
+
                 const body = `Dear ${customer.pilotName || customer.ownerName || 'Valued Customer'},
 
-Thank you for choosing Mustang Aviation. Your aircraft ${customer.tailNumber} (${customer.aircraftType}) has been serviced and is ready for departure.
+Thank you for choosing Mustang Aviation. Your aircraft ${customer.tailNumber} (${customer.aircraftType}) has been serviced and is ready.
 
-SERVICES COMPLETED:
-${services.map(s => '   - ' + s).join('\n')}
+SERVICES PROVIDED:
+${services.length > 0 ? services.map(s => '   - ' + s).join('\n') : '   - No additional services recorded'}
+${departureLine ? `
 
-We hope you enjoyed your stop in Pierre. If you need anything further, please do not hesitate to reach out - we are always happy to help.
+${departureLine}` : ''}
+${order.completionNotes ? `
+
+Service notes: ${order.completionNotes}` : ''}
+
+We appreciate your business and hope you had a great stop in Pierre. If you need anything else before departure, just reply to this email or give us a call.
 
 info@mustangaviation.aero
 www.mustangaviation.aero
@@ -874,7 +906,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 "Where the Midwest Meets the Wild West"`;
 
                 const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.location.href = mailtoLink;
+                window.open(mailtoLink, '_self');
             };
 
             if (!session) {
@@ -1115,7 +1147,11 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 updateOrderStatus={updateOrderStatus}
                                 addTicket={addTicket}
                                 messages={messages}
-                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'RAMP', orderId, tailNumber)}
+                                addMessage={(text, a, b, c) => {
+                                    const orderId = (typeof a === 'string' && (a.startsWith('ord-') || a.includes('-'))) ? a : b;
+                                    const tailNumber = (typeof a === 'string' && (a.startsWith('N') || a.startsWith('n'))) ? a : (typeof b === 'string' && (b.startsWith('N') || b.startsWith('n')) ? b : c);
+                                    return addMessage(text, 'RAMP', orderId, tailNumber);
+                                }}
                                 getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('RAMP', orderId)}
                                 markOrderThreadRead={(orderId) => markOrderThreadRead('RAMP', orderId)}
                                 startOrderService={startOrderService}
@@ -1133,7 +1169,11 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 deleteTicket={deleteTicket}
                                 generateCompletionEmail={generateCompletionEmail}
                                 messages={messages}
-                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'OFFICE', orderId, tailNumber)}
+                                addMessage={(text, a, b, c) => {
+                                    const orderId = (typeof a === 'string' && (a.startsWith('ord-') || a.includes('-'))) ? a : b;
+                                    const tailNumber = (typeof a === 'string' && (a.startsWith('N') || a.startsWith('n'))) ? a : (typeof b === 'string' && (b.startsWith('N') || b.startsWith('n')) ? b : c);
+                                    return addMessage(text, 'OFFICE', orderId, tailNumber);
+                                }}
                                 getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('OFFICE', orderId)}
                                 markOrderThreadRead={(orderId) => markOrderThreadRead('OFFICE', orderId)}
                                 closeOrder={closeOrder}
@@ -1525,6 +1565,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                 getClosedOrders,
                 getWeekOrders,
                 getFuelTotal,
+                getActiveRampOrders,
                 OrderMessageThread,
                 CompletionModal,
                 OrderCard,

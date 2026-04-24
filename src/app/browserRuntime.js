@@ -26,6 +26,12 @@
     return new Date(dateA).toDateString() === new Date(dateB).toDateString();
   }
 
+  function getFuelQuantity(order) {
+    const raw = order?.fuelActualGallons ?? order?.fuelRequestedGallons ?? order?.fuelQuantity ?? 0;
+    const qty = Number(raw);
+    return Number.isFinite(qty) ? qty : 0;
+  }
+
   const orderSelectors = {
     all(orders) {
       return orders || [];
@@ -58,7 +64,7 @@
     jetATotal(orders) {
       return (orders || []).reduce((sum, order) => {
         const fuelType = (order.fuelType || '').toUpperCase();
-        const qty = Number(order.fuelQuantity || order.fuelActualGallons || 0);
+        const qty = getFuelQuantity(order);
         return fuelType === 'JET-A' ? sum + qty : sum;
       }, 0);
     },
@@ -66,7 +72,7 @@
     avgasTotal(orders) {
       return (orders || []).reduce((sum, order) => {
         const fuelType = (order.fuelType || '').toUpperCase();
-        const qty = Number(order.fuelQuantity || order.fuelActualGallons || 0);
+        const qty = getFuelQuantity(order);
         return fuelType === '100LL' ? sum + qty : sum;
       }, 0);
     },

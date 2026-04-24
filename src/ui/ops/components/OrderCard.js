@@ -53,7 +53,10 @@ window.AirBossComponents.OrderCard = function OrderCard({
     : null;
   const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
 
-  const handleSaveAndNotify = (actualFuel, completionNotes) => {
+  const departureDateValue = order.departureDate ? new Date(order.departureDate) : null;
+  const hasValidDepartureDate = departureDateValue && !Number.isNaN(departureDateValue.getTime());
+
+  const handleSaveAndNotify = (actualFuel, completionNotes, meterData = {}) => {
     const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
       ? (order.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null)
       : parseFloat(actualFuel);
@@ -63,6 +66,8 @@ window.AirBossComponents.OrderCard = function OrderCard({
     const updatedOrder = {
       ...order,
       fuelActualGallons: finalActualFuel,
+      fuelMeterStart: meterData.meterStart ?? order.fuelMeterStart ?? null,
+      fuelMeterEnd: meterData.meterEnd ?? order.fuelMeterEnd ?? null,
       services: editedServices,
       completionNotes: completionNotes || '',
       completedAt: new Date().toISOString(),
@@ -82,6 +87,8 @@ window.AirBossComponents.OrderCard = function OrderCard({
         status: 'ready',
         completedAt: updatedOrder.completedAt,
         fuelActualGallons: finalActualFuel,
+        fuelMeterStart: meterData.meterStart ?? order.fuelMeterStart ?? null,
+        fuelMeterEnd: meterData.meterEnd ?? order.fuelMeterEnd ?? null,
         completionNotes: completionNotes || '',
       });
     } catch (error) {
@@ -125,8 +132,8 @@ window.AirBossComponents.OrderCard = function OrderCard({
 
       <div className="mb-3">
         {order.fuelType && (
-          <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded-lg">
-            <div className="font-semibold text-blue-900 mb-2">⛽ Fuel Order</div>
+          <div className={`border-2 p-3 rounded-lg ${order.fuelType === 'JET-A' || order.fuelType === 'Jet-A' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div className={`font-semibold mb-2 ${order.fuelType === 'JET-A' || order.fuelType === 'Jet-A' ? 'text-amber-900' : 'text-blue-900'}`}>⛽ Fuel Order</div>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-sm text-gray-600">Requested Fuel</div>
@@ -135,7 +142,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
               <div className="text-2xl font-bold text-gray-700">{order.fuelType}</div>
             </div>
             {!compact && (
-              <div className="mt-2 text-sm text-blue-900">
+              <div className={`mt-2 text-sm ${(order.fuelType === 'JET-A' || order.fuelType === 'Jet-A') ? 'text-amber-900' : 'text-blue-900'}`}>
                 Actual gallons pumped are entered when Ramp completes the order and hands it to Front Desk.
               </div>
             )}
@@ -161,9 +168,11 @@ window.AirBossComponents.OrderCard = function OrderCard({
       {order.departureDate && !compact && (
         <div className="text-sm text-gray-600 mb-3 bg-green-50 border border-green-200 p-2 rounded">
           <span className="font-medium">✈️ Departure:</span>{' '}
-          {new Date(order.departureDate + 'T12:00:00').toLocaleDateString('en-US', {
-            weekday: 'short', month: 'short', day: 'numeric'
-          })}
+          {hasValidDepartureDate
+            ? departureDateValue.toLocaleDateString('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric'
+              })
+            : String(order.departureDate)}
           {order.departureTime && ` at ${(() => {
             const [h, m] = order.departureTime.split(':');
             const ampm = h >= 12 ? 'PM' : 'AM';

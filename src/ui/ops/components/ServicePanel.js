@@ -29,8 +29,10 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
   const requestedFuel = order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
+  const departureDateValue = order.departureDate ? new Date(order.departureDate) : null;
+  const hasValidDepartureDate = departureDateValue && !Number.isNaN(departureDateValue.getTime());
 
-  const handleSaveAndNotify = async (actualFuel, completionNotes) => {
+  const handleSaveAndNotify = async (actualFuel, completionNotes, meterData = {}) => {
     const parsedActualFuel = actualFuel === '' || actualFuel === null || actualFuel === undefined
       ? (order.fuelActualGallons ?? order.fuelQuantity ?? order.fuelRequestedGallons ?? null)
       : parseFloat(actualFuel);
@@ -40,6 +42,8 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
     const updatedOrder = {
       ...order,
       fuelActualGallons: finalActualFuel,
+      fuelMeterStart: meterData.meterStart ?? order.fuelMeterStart ?? null,
+      fuelMeterEnd: meterData.meterEnd ?? order.fuelMeterEnd ?? null,
       services: order.services || [],
       completionNotes: completionNotes || '',
       completedAt: new Date().toISOString(),
@@ -59,6 +63,8 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
         status: 'ready',
         completedAt: updatedOrder.completedAt,
         fuelActualGallons: finalActualFuel,
+        fuelMeterStart: meterData.meterStart ?? order.fuelMeterStart ?? null,
+        fuelMeterEnd: meterData.meterEnd ?? order.fuelMeterEnd ?? null,
         completionNotes: completionNotes || '',
       });
       onBack && onBack();
@@ -109,13 +115,13 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
 
         <div className="p-6 space-y-5">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            <div className={`rounded-xl border-2 p-4 ${order.fuelType ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div className={`rounded-xl border-2 p-4 ${order.fuelType ? ((order.fuelType === 'JET-A' || order.fuelType === 'Jet-A') ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50') : 'border-gray-200 bg-gray-50'}`}>
               <div className="text-xs uppercase tracking-wide font-bold text-gray-500">Fuel</div>
               {order.fuelType ? (
                 <>
                   <div className="text-3xl font-black mt-2 text-gray-900">{requestedFuel} gal</div>
-                  <div className="text-lg font-bold mt-1 text-blue-900">{order.fuelType}</div>
-                  <div className="text-sm text-blue-900 mt-2">
+                  <div className={`text-lg font-bold mt-1 ${(order.fuelType === 'JET-A' || order.fuelType === 'Jet-A') ? 'text-amber-900' : 'text-blue-900'}`}>{order.fuelType}</div>
+                  <div className={`text-sm mt-2 ${(order.fuelType === 'JET-A' || order.fuelType === 'Jet-A') ? 'text-amber-900' : 'text-blue-900'}`}>
                     Actual gallons are captured when Ramp completes and hands this aircraft to Front Desk.
                   </div>
                 </>
@@ -146,20 +152,27 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
               <div className="text-xs uppercase tracking-wide font-bold text-gray-500">Departure</div>
               <div className="text-sm text-gray-700 mt-2">
                 {order.departureDate ? (
-                  <>
-                    <div className="font-semibold text-gray-900">
-                      {new Date(order.departureDate + 'T12:00:00').toLocaleDateString('en-US', {
-                        weekday: 'short', month: 'short', day: 'numeric'
-                      })}
-                    </div>
-                    <div className="mt-1">
-                      {order.departureTime ? (() => {
-                        const [h, m] = order.departureTime.split(':');
-                        const ampm = h >= 12 ? 'PM' : 'AM';
-                        return `Scheduled out at ${((h % 12) || 12)}:${m} ${ampm}`;
-                      })() : 'Departure time not set'}
-                    </div>
-                  </>
+                  hasValidDepartureDate ? (
+                    <>
+                      <div className="font-semibold text-gray-900">
+                        {departureDateValue.toLocaleDateString('en-US', {
+                          weekday: 'short', month: 'short', day: 'numeric'
+                        })}
+                      </div>
+                      <div className="mt-1">
+                        {order.departureTime ? (() => {
+                          const [h, m] = order.departureTime.split(':');
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          return `Scheduled out at ${((h % 12) || 12)}:${m} ${ampm}`;
+                        })() : 'Departure time not set'}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-semibold text-gray-900">{String(order.departureDate)}</div>
+                      <div className="mt-1">{order.departureTime || 'Departure time not set'}</div>
+                    </>
+                  )
                 ) : 'No departure set'}
               </div>
               {order.purpose && (
@@ -177,6 +190,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
 
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] gap-5">
             <OrderMessageThread
+              key={`service-thread-${order.id}-${messages ? messages.filter(message => message.orderId === order.id).length : 0}`}
               order={order}
               messages={messages}
               addMessage={addMessage}

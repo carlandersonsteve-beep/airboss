@@ -4,12 +4,21 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
   const { useMemo, useState } = React;
   const requestedFuel = Number(order.fuelRequestedGallons ?? order.fuelQuantity ?? 0);
   const [actualFuel, setActualFuel] = useState(order.fuelActualGallons ?? '');
+  const [meterStart, setMeterStart] = useState(order.fuelMeterStart ?? '');
+  const [meterEnd, setMeterEnd] = useState(order.fuelMeterEnd ?? '');
   const [completionNotes, setCompletionNotes] = useState(order.completionNotes || '');
 
   const validation = useMemo(() => {
     const hasFuelOrder = Boolean(order.fuelType);
     const parsedActualFuel = actualFuel === '' ? null : Number(actualFuel);
     const actualFuelNumber = actualFuel === '' || Number.isNaN(parsedActualFuel) ? null : parsedActualFuel;
+    const parsedMeterStart = meterStart === '' ? null : Number(meterStart);
+    const parsedMeterEnd = meterEnd === '' ? null : Number(meterEnd);
+    const meterStartNumber = meterStart === '' || Number.isNaN(parsedMeterStart) ? null : parsedMeterStart;
+    const meterEndNumber = meterEnd === '' || Number.isNaN(parsedMeterEnd) ? null : parsedMeterEnd;
+    const meterDelta = meterStartNumber !== null && meterEndNumber !== null
+      ? Number((meterEndNumber - meterStartNumber).toFixed(1))
+      : null;
     const rawFuelVariance = actualFuelNumber !== null ? actualFuelNumber - requestedFuel : 0;
     const fuelVariance = Number(rawFuelVariance.toFixed(1));
     const hasFuelVariance = actualFuelNumber !== null && Math.abs(fuelVariance) > 0;
@@ -21,17 +30,26 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
       error = 'Actual gallons must be a valid number.';
     } else if (hasFuelOrder && actualFuelNumber < 0) {
       error = 'Actual gallons cannot be negative.';
+    } else if (hasFuelOrder && meterStart !== '' && meterStartNumber === null) {
+      error = 'Meter start must be a valid number.';
+    } else if (hasFuelOrder && meterEnd !== '' && meterEndNumber === null) {
+      error = 'Meter end must be a valid number.';
+    } else if (meterDelta !== null && meterDelta < 0) {
+      error = 'Meter end cannot be less than meter start.';
     } else if (hasFuelVariance && !completionNotes.trim()) {
       error = 'Add a note explaining why actual fuel differs from requested fuel.';
     }
 
     return {
       actualFuelNumber,
+      meterStartNumber,
+      meterEndNumber,
+      meterDelta,
       fuelVariance,
       hasFuelVariance,
       error,
     };
-  }, [actualFuel, completionNotes, order.fuelType, requestedFuel]);
+  }, [actualFuel, meterStart, meterEnd, completionNotes, order.fuelType, requestedFuel]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -43,19 +61,59 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
 
         <div className="p-6 space-y-4">
           {order.fuelType && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Actual Fuel Pumped ({order.fuelType})
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={actualFuel}
-                onChange={(e) => setActualFuel(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
-                placeholder="Enter actual gallons"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Actual Fuel Pumped ({order.fuelType})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={actualFuel}
+                  onChange={(e) => setActualFuel(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
+                  placeholder="Enter actual gallons"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Meter Start
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={meterStart}
+                    onChange={(e) => setMeterStart(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
+                    placeholder="Optional start reading"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Meter End
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={meterEnd}
+                    onChange={(e) => setMeterEnd(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
+                    placeholder="Optional end reading"
+                  />
+                </div>
+              </div>
+
+              {validation.meterDelta !== null && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
+                  <span className="font-semibold">Meter Delta:</span> {validation.meterDelta} gal
+                </div>
+              )}
+
               {validation.hasFuelVariance && (
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
                   <div className="text-sm font-bold text-amber-900">⚠️ Fuel variance warning</div>
@@ -103,7 +161,10 @@ window.AirBossComponents.CompletionModal = function CompletionModal({ order, cus
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(actualFuel, completionNotes)}
+            onClick={() => onConfirm(actualFuel, completionNotes, {
+              meterStart: validation.meterStartNumber,
+              meterEnd: validation.meterEndNumber,
+            })}
             disabled={Boolean(validation.error)}
             className={`flex-1 px-6 py-3 rounded-lg font-bold transition ${validation.error ? 'bg-orange-300 text-white cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
           >

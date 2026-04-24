@@ -6,6 +6,12 @@ function isSameDay(dateA, dateB) {
   return a.toDateString() === b.toDateString();
 }
 
+function getFuelQuantity(order) {
+  const raw = order?.fuelActualGallons ?? order?.fuelRequestedGallons ?? order?.fuelQuantity ?? 0;
+  const qty = Number(raw);
+  return Number.isFinite(qty) ? qty : 0;
+}
+
 export const orderSelectors = {
   all(orders) {
     return orders || [];
@@ -41,7 +47,7 @@ export const orderSelectors = {
   jetATotal(orders) {
     return (orders || []).reduce((sum, order) => {
       const fuelType = (order.fuelType || '').toUpperCase();
-      const qty = Number(order.fuelQuantity || order.fuelActualGallons || 0);
+      const qty = getFuelQuantity(order);
       return fuelType === 'JET-A' ? sum + qty : sum;
     }, 0);
   },
@@ -49,7 +55,7 @@ export const orderSelectors = {
   avgasTotal(orders) {
     return (orders || []).reduce((sum, order) => {
       const fuelType = (order.fuelType || '').toUpperCase();
-      const qty = Number(order.fuelQuantity || order.fuelActualGallons || 0);
+      const qty = getFuelQuantity(order);
       return fuelType === '100LL' ? sum + qty : sum;
     }, 0);
   },

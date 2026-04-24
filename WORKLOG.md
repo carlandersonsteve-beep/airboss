@@ -6,66 +6,109 @@ Session-to-session checkpoint. Read this first to regain context fast.
 ---
 
 ## Current Phase
-Pre-pilot testing with Tacie (2026-03-28)
+Pre-pilot workflow hardening and shared-mode stabilization (updated 2026-04-24)
 
 ## Current Status
-Ready for Tacie test session. Server running at http://localhost:8792 on all interfaces (HOST=0.0.0.0). Tacie can hit it at http://192.168.1.101:8792.
+GroundCore is actively being hardened around real ops workflow:
+- shared-mode auth/session behavior
+- kiosk create path
+- ramp → front desk service handoff
+- fuel meter capture
+- front desk finalize/billing flow
+- live service chat intended to replace radios
 
-## What Was Done (2026-03-28)
-- Fixed null orderId bug in general chat messages (was throwing requireField error → all general chat was broken)
-- Updated TODO.md and CURRENT_STATE.md to reflect actual post-sprint state
-- Cleaned local-store.json to fresh/empty state (no junk test data) for Tacie test
-- Removed forced password change on tacie/ramp accounts so onboarding is smooth
-- Backed up pre-test store to local-store.pre-tacie-test.json
-- Confirmed kiosk → ramp flow is clean end-to-end (status constants correct, activeRamp selector correct)
-- Confirmed horse whinny works on LAN (tested with Tacie directly)
-- Server started on 0.0.0.0:8792 for LAN access
+Local server:
+- http://localhost:8792
 
-## What Was Done (2026-03-26 to 2026-03-27)
-- Horse whinny notification sound (Dragon Studio MP3, wired to incoming messages)
-- Fuel quantity decimals preserved on completion
-- Tail-first returning aircraft check-in on kiosk
-- Start Service snap-back fixed (order transition + in-progress gate, await handoff)
-- Thread reads working locally
-- Local order updates working
-- Auth hardened, local-only backend access
-- Ramp view repaired, scroll fixed, queue counts aligned
-- Front desk filters scoped to ready queue, fuel totals rounded
-- Ramp handoff banner aligned with today count
-- Export/import buttons removed from top bar
-- New Customer button replaced with QR placeholder
-- Focused ramp service panel workflow
-- Polish pass: labels, copy, check-in flow
+## What Was Done (2026-04-24)
+### Confirmed existing but uncommitted work
+- Verified yesterday's UI work for fuel colors and meter capture existed in local code but was not committed yet.
+- Files involved included:
+  - `src/ui/ops/components/CompletionModal.js`
+  - `src/ui/ops/components/OrderCard.js`
+  - `src/ui/ops/components/ServicePanel.js`
+  - `server/db/schema.js`
+  - `server/db/repositories.js`
 
-## Current Pilot Accounts
-| Username | Password             | Role   |
-|----------|----------------------|--------|
-| steve    | Airboss-Steve-Prod-2!| ADMIN  |
-| tacie    | groundcore-tacie     | OFFICE |
-| ramp     | groundcore-ramp      | RAMP   |
-| lindsey  | mustang1             | OFFICE |
-| neil     | groundcore-ramp      | RAMP   |
-| kiosk    | groundcore-kiosk     | KIOSK  |
+### Fuel / departure / finalize fixes
+- Fixed departure rendering that was showing `Invalid Date` by tolerating full timestamp/ISO values.
+- Fixed desk-side fuel totals to use the real data fields in priority order:
+  - `fuelActualGallons`
+  - `fuelRequestedGallons`
+  - `fuelQuantity`
+- Improved Finalize Billing Review departure display to be human-readable instead of raw ISO values.
+- Removed `Purpose` from Finalize Billing Review (deemed redundant by Steve).
+- Changed finalization to auto-draft a completion email using actual service details.
+- Adjusted dashboard gallon totals so finalized orders still count instead of dropping off immediately.
 
-## Important Current Truths
-- Running off local Node server + file store (no Postgres, no Render)
-- Server binds to 0.0.0.0 when started with HOST=0.0.0.0 for LAN testing
-- LAN URL for Tacie: http://192.168.1.101:8792 (kiosk: /kiosk)
-- Store is clean/empty — all data from Tacie's test will be real
+### Kiosk create-path repair
+Found an inconsistent source-validation bug:
+- `/checkin/customers` accepted `source: kiosk`
+- `/checkin/orders` rejected that and expected `kiosk-checkin`
 
-## Next Recommended Steps
-1. Tacie test session — let her break it, document friction
-2. After test: note bugs/friction found, fix priorities
-3. Render + Supabase deployment (so pilot isn't running off Steve's laptop)
-4. Real pilot: Lindsey, Neil, John
+Fixes applied:
+- kiosk endpoints now accept consistent kiosk source shape
+- kiosk endpoints auto-generate IDs when missing
+- kiosk orders default to `pending`
 
-## Blockers / Risks
-- Whole pilot depends on Steve's MacBook being on — not sustainable
-- No git on ~/Work/GroundCore (WAIT — it IS under git now, confirmed)
-- Audio unlock on mobile may still be an issue (Tacie heard it today in general chat, but order thread notifications untested on mobile)
+After repair, seeded dummy kiosk traffic successfully:
+- N728GC — Citation CJ3 — JET-A 165
+- N415TX — King Air 350 — JET-A 92
+- N602LM — Cirrus SR22 — 100LL 38
+- N990WB — Pilatus PC-12 — JET-A 124
+
+### Messaging / service chat overhaul
+- Repaired order-thread callback argument bugs that were causing broken requests like:
+  - `POST /orders/RAMP/messages`
+- Added cache-busting version bumps for extracted component files when stale browser JS was blocking fixes from appearing.
+- Added a dedicated **Active Service Chat** section to Front Desk above Ready to Bill.
+- Goal is explicit: replace two-way radios with structured service chat by aircraft/tail.
+- Desk-side service chat is intended to be always visible for active service aircraft, independent of the ready-to-bill card.
+
+### Chat scroll battle
+This was the major rabbit hole of the session.
+
+Symptoms:
+- sending a message snapped the entire page downward on both ramp and desk
+- after stopping that, the thread still did not reliably show the newest message
+- switching between ramp and desk also failed to land at the latest message
+
+Attempted fixes included:
+- removing page-level `scrollIntoView()` behavior
+- moving to internal pane scroll only
+- disabling auto-scroll
+- delayed scroll after paint
+- `block: 'nearest'` end-marker scroll
+- `useLayoutEffect`
+- textarea blur after send
+- reducing mark-read rerender churn
+- fixed-height internal scroll region
+- remount-per-thread/message-count behavior
+
+By the end of the session, Steve reported the thread behavior finally looked fixed enough to continue.
+
+## Product decisions clarified on 2026-04-24
+- Front Desk needs an always-open **service chat** section for active service aircraft.
+- This service chat is distinct from the ready-to-bill/completed aircraft card.
+- It should be grouped by tail number and support inline reply.
+- Eventually chat lines should read more like:
+  - `Neil, N605BM — [message]`
+  rather than only generic role labels.
+- This chat is explicitly meant to replace radios.
+
+## Known Risks / Follow-up
+- Shared-mode auth/session behavior can still be confusing when browser state is stale.
+- Repo documentation is stale relative to current code.
+- Many meaningful fixes still appear to be local/uncommitted — commit soon.
+- Message identity/display-name formatting still needs improvement.
 
 ## If Starting Fresh Next Session
 1. Read this WORKLOG
 2. Read CURRENT_STATE.md
-3. Read TODO.md
-4. Start server: cd ~/Work/GroundCore && HOST=0.0.0.0 npm run dev
+3. Inspect `git status` first — many important changes may still be uncommitted
+4. Start server: `cd ~/Work/GroundCore && bash scripts/local-server.sh restart`
+5. Verify:
+   - kiosk create path
+   - ramp ↔ desk service chat
+   - finalize + draft email
+   - front desk gallon totals

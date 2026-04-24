@@ -12,9 +12,12 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
   unreadCount = 0,
   onOpen,
 }) {
-  const { useMemo, useRef, useEffect, useState } = React;
+  const { useMemo, useRef, useEffect, useLayoutEffect, useState } = React;
   const [text, setText] = useState('');
   const endRef = useRef(null);
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  const openedRef = useRef(false);
 
   const threadMessages = useMemo(() => {
     return (messages || [])
@@ -23,22 +26,49 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
   }, [messages, order?.id]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    onOpen && onOpen(order?.id);
-  }, [threadMessages.length, order?.id]);
+    if (!openedRef.current && order?.id) {
+      openedRef.current = true;
+      onOpen && onOpen(order?.id);
+    }
+  }, [order?.id]);
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [order?.id, threadMessages.length]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const syncScroll = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+    const rafId = window.requestAnimationFrame(syncScroll);
+    const timeoutId = window.setTimeout(syncScroll, 40);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [order?.id, threadMessages.length]);
 
   const handleSend = () => {
     if (!text.trim() || !order?.id) return;
     addMessage(text.trim(), order.id, order.tailNumber || order.aircraft || null);
     setText('');
+    inputRef.current?.blur();
   };
 
   const containerClass = compact
-    ? 'bg-gray-50 border border-gray-200 rounded-lg p-3'
-    : 'bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3';
+    ? 'bg-gray-50 border border-gray-200 rounded-lg p-3 h-[320px] flex flex-col overflow-hidden'
+    : 'bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3 h-[360px] flex flex-col overflow-hidden';
 
   const titleColor = accent === 'blue' ? 'text-blue-900' : 'text-orange-900';
   const badgeColor = accent === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+  const placeholder = senderRole === 'OFFICE'
+    ? 'Message the line crew about this aircraft...'
+    : 'Message front desk about this aircraft...';
 
   return (
     <div className={containerClass}>
@@ -59,7 +89,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
         </div>
       </div>
 
-      <div className="max-h-48 overflow-y-auto space-y-2 mb-3 pr-1">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-2 mb-3 pr-1">
         {threadMessages.length === 0 && (
           <div className="text-sm text-gray-500 bg-white rounded-lg border border-dashed border-gray-300 px-3 py-3">
             {emptyLabel}
@@ -88,6 +118,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
 
       <div className="flex gap-2 items-end">
         <textarea
+          ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -97,7 +128,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
             }
           }}
           rows="2"
-          placeholder="Message front desk about this aircraft..."
+          placeholder={placeholder}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
         />
         <button

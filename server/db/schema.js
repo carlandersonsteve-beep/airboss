@@ -23,6 +23,8 @@ create table if not exists orders (
   fuel_type text,
   fuel_requested_gallons numeric,
   fuel_actual_gallons numeric,
+  fuel_meter_start numeric,
+  fuel_meter_end numeric,
   hangar_overnight text,
   services jsonb not null default '[]'::jsonb,
   notes text,
@@ -48,6 +50,8 @@ create table if not exists order_messages (
 alter table order_messages alter column order_id drop not null;
 alter table orders alter column fuel_requested_gallons type numeric using fuel_requested_gallons::numeric;
 alter table orders alter column fuel_actual_gallons type numeric using fuel_actual_gallons::numeric;
+alter table orders add column if not exists fuel_meter_start numeric;
+alter table orders add column if not exists fuel_meter_end numeric;
 
 create index if not exists idx_order_messages_order_id_created_at
   on order_messages(order_id, created_at);
