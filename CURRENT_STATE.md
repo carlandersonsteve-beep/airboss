@@ -58,9 +58,29 @@ GroundCore is moving toward two distinct front-desk surfaces:
 - Repo docs were stale and needed manual refresh.
 - Fuel prices are currently hardcoded and should eventually move to admin/config.
 
+## Pilot Readiness Snapshot (2026-04-24)
+
+### PASS
+- Shared backend is up and schema-ready.
+- Front Desk Active Service Chat is restricted to true `in_progress` aircraft.
+- Service chat identity persistence path exists for `senderName` + `tailNumber`.
+- Ramp queue now explicitly sorts by departure priority, then creation time.
+- Kiosk note path now exists and writes into `order.notes`.
+
+### FAIL / Known Issue
+- General chat horse-whinny notification is still blocked by browser audio permission behavior in some flows.
+
+### NEEDS HUMAN CHECK
+- Full kiosk submit flow in live browser use.
+- Kiosk note visibly appearing on ramp/service surfaces after real submit.
+- Desk ↔ ramp service chat after refresh in real use.
+- Finalize/handoff flow under actual clicking.
+- Ramp card visual scanability in real use.
+- Same-aircraft concurrency behavior with two live users.
+
 ## Next Recommended Steps
-1. Continue hardening ramp ↔ desk workflow with real pilot-like scenarios
-2. Clean up status semantics so legacy labels stop leaking through (`ready`, `finalized`, `in-progress` vs canonical values)
-3. Tighten handoff / finalize clarity on Front Desk
-4. Hard-test read-state and concurrency edge cases
-5. Move fuel prices into config/admin once the workflow stabilizes
+1. Run the minimum human pilot-prep test set (kiosk note → ramp → desk chat → complete → finalize → refresh).
+2. Clean up status semantics so legacy labels stop leaking through (`ready`, `finalized`, `in-progress` vs canonical values).
+3. Tighten handoff / finalize clarity on Front Desk.
+4. Hard-test read-state and concurrency edge cases.
+5. Move fuel prices into config/admin once the workflow stabilizes.

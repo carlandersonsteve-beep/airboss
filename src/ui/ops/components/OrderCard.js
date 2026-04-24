@@ -134,10 +134,10 @@ window.AirBossComponents.OrderCard = function OrderCard({
   };
 
   return (
-    <div className={`border rounded-lg transition ${compact ? 'p-3 bg-white/90 border-gray-200' : 'p-4 hover:shadow-md border-gray-200 bg-white'}`}>
-      <div className="flex justify-between items-start mb-3 gap-3">
+    <div className={`border rounded-xl border-gray-400 transition ${compact ? 'p-3 bg-white/95 shadow-sm' : 'p-4 hover:shadow-lg bg-white shadow-md'}`}>
+      <div className="flex justify-between items-start mb-3 gap-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-3">
         <div>
-          <div className="font-bold text-lg mustang-red-text">{customer?.tailNumber || 'Unknown'}</div>
+          <div className="font-black text-2xl text-black leading-none">{customer?.tailNumber || 'Unknown'}</div>
           <div className="text-gray-600">{customer?.aircraftType || 'Unknown Type'}</div>
           <div className="text-sm text-gray-500">{customer?.pilotName || customer?.ownerName}</div>
         </div>
@@ -192,8 +192,8 @@ window.AirBossComponents.OrderCard = function OrderCard({
         </div>
       )}
       {order.departureDate && !compact && (
-        <div className="text-sm text-gray-600 mb-3 bg-green-50 border border-green-200 p-2 rounded">
-          <span className="font-medium">✈️ Departure:</span>{' '}
+        <div className="text-sm text-gray-700 mb-3 bg-indigo-50 border-2 border-indigo-200 p-3 rounded-lg shadow-sm">
+          <span className="font-bold text-indigo-900">✈️ Departure Priority:</span>{' '}
           {hasValidDepartureDate
             ? departureDateValue.toLocaleDateString('en-US', {
                 weekday: 'short', month: 'short', day: 'numeric'

@@ -279,6 +279,7 @@
             fuelRequestedGallons: parseFloat(formData.fuelQuantity) || 0,
             hangarOvernight: formData.hangarOvernight,
             services: formData.services,
+            notes: String(formData.notes || '').trim(),
             arrivalTime: new Date().toISOString(),
             purpose: formData.visitPurpose,
             source: 'kiosk-checkin',
@@ -332,6 +333,7 @@
                 fuelQuantity: '',
                 hangarOvernight: '', // Explicit Yes/No for liability
                 services: [],
+                notes: '',
                 marketingConsent: true,
                 departureDate: '',
                 departureTime: ''
@@ -583,6 +585,7 @@
                             fuelQuantity: '',
                             hangarOvernight: '',
                             services: [],
+                            notes: '',
                             marketingConsent: true,
                             departureDate: '',
                             departureTime: ''
@@ -885,6 +888,20 @@
                             ))}
                         </div>
 
+                        <div style={{marginBottom: '2rem', padding: '1.5rem', background: '#f9fafb', borderRadius: '1rem'}}>
+                            <h3 style={{fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.75rem'}}>📝 Anything we should know?</h3>
+                            <p style={{fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.75rem'}}>
+                                Optional — special instructions, timing, passenger needs, call-ahead requests, or anything else helpful for our crew to know.
+                            </p>
+                            <textarea
+                                className="input-field"
+                                rows="4"
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                placeholder="Example: Quick turn, please top off before 7am, call this number when ready, dog on board, GPU needed on departure..."
+                            />
+                        </div>
+
                         <div style={{display: 'flex', gap: '1rem'}}>
                             <button className="btn btn-secondary" onClick={() => setStep(lookupState.matched ? 2 : 3)}>← Back</button>
                             <button className="btn btn-primary" style={{flex: 1}} onClick={goToReviewStep}>
@@ -961,6 +978,13 @@
                                     {formData.departureTime && (() => { const [h,m] = formData.departureTime.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return ' at ' + ((h % 12) || 12) + ':' + m + ' ' + ampm; })()}
                                 </p>
                                 <p style={{fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem'}}>We'll send a courtesy email the day before your departure.</p>
+                            </div>
+                        )}
+
+                        {formData.notes && (
+                            <div style={{background: '#fff7ed', padding: '1.5rem', borderRadius: '1rem', marginBottom: '1.5rem', border: '2px solid #fdba74'}}>
+                                <h3 style={{fontWeight: 'bold', marginBottom: '0.5rem', color: '#c2410c'}}>📝 Notes for Mustang Aviation</h3>
+                                <p style={{whiteSpace: 'pre-wrap', color: '#7c2d12'}}>{formData.notes}</p>
                             </div>
                         )}
 

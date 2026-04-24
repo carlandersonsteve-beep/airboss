@@ -109,9 +109,33 @@ window.AirBossComponents.RampView = function RampView({
     }
   }, [hasFocusedServiceMode, activeServiceOrderId]);
 
-  const queueOrders = hasFocusedServiceMode
-    ? activeOrders.filter(order => order.id !== activeServiceOrderId)
-    : activeOrders;
+  const toDepartureTimestamp = (order) => {
+    if (!order?.departureDate) return Number.POSITIVE_INFINITY;
+    const datePart = String(order.departureDate).split('T')[0];
+    const timePart = order?.departureTime && String(order.departureTime).includes(':')
+      ? String(order.departureTime)
+      : '23:59';
+    const parsed = new Date(`${datePart}T${timePart}`);
+    return Number.isNaN(parsed.getTime()) ? Number.POSITIVE_INFINITY : parsed.getTime();
+  };
+
+  const sortRampQueueOrders = (list) => {
+    return [...(list || [])].sort((a, b) => {
+      const aDeparture = toDepartureTimestamp(a);
+      const bDeparture = toDepartureTimestamp(b);
+      if (aDeparture !== bDeparture) return aDeparture - bDeparture;
+
+      const aCreated = new Date(a?.createdAt || 0).getTime();
+      const bCreated = new Date(b?.createdAt || 0).getTime();
+      return aCreated - bCreated;
+    });
+  };
+
+  const queueOrders = sortRampQueueOrders(
+    hasFocusedServiceMode
+      ? activeOrders.filter(order => order.id !== activeServiceOrderId)
+      : activeOrders
+  );
 
   return (
     <div>
@@ -229,11 +253,14 @@ window.AirBossComponents.RampView = function RampView({
               : 'No active ramp orders. If a kiosk check-in just completed, it may still take a second or two to appear here — and once ramp completes it moves to Front Desk.'}
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {queueOrders.map(order => {
               const customer = customers.find(c => c.id === order.customerId);
               return (
-                <div key={order.id} className={hasFocusedServiceMode ? 'opacity-70' : ''}>
+                <div
+                  key={order.id}
+                  className={`${hasFocusedServiceMode ? 'opacity-70' : ''} rounded-2xl border border-gray-400 ${order.departureDate ? 'bg-indigo-50/30 shadow-md' : 'bg-gray-50/60 shadow-sm'} p-1.5`}
+                >
                   <OrderCard
                     order={order}
                     customer={customer}

@@ -109,8 +109,8 @@
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
     <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260424h"></script>
     <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260424a"></script>
-    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260424b"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260424e"></script>
+    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260424e"></script>
     <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260424a"></script>
     <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260424j"></script>
     <script type="text/babel">
@@ -346,12 +346,46 @@
 
             // === HORSE NOTIFICATION SOUND ===
             const horseAudioRef = React.useRef(null);
+            const horseAudioUnlockedRef = React.useRef(false);
 
             useEffect(() => {
                 const audio = new Audio('assets/horse.mp3');
                 audio.preload = 'auto';
                 horseAudioRef.current = audio;
+
+                const unlockHorseAudio = () => {
+                    const unlockedAudio = horseAudioRef.current;
+                    if (!unlockedAudio || horseAudioUnlockedRef.current) return;
+                    horseAudioUnlockedRef.current = true;
+                    const originalTime = unlockedAudio.currentTime || 0;
+                    unlockedAudio.muted = true;
+                    const unlockPromise = unlockedAudio.play();
+                    if (unlockPromise && typeof unlockPromise.then === 'function') {
+                        unlockPromise
+                            .then(() => {
+                                unlockedAudio.pause();
+                                unlockedAudio.currentTime = originalTime;
+                                unlockedAudio.muted = false;
+                            })
+                            .catch(() => {
+                                horseAudioUnlockedRef.current = false;
+                            });
+                    } else {
+                        unlockedAudio.pause();
+                        unlockedAudio.currentTime = originalTime;
+                        unlockedAudio.muted = false;
+                    }
+                };
+
+                const unlockEvents = ['click', 'keydown', 'touchstart'];
+                unlockEvents.forEach((eventName) => {
+                    window.addEventListener(eventName, unlockHorseAudio, { passive: true });
+                });
+
                 return () => {
+                    unlockEvents.forEach((eventName) => {
+                        window.removeEventListener(eventName, unlockHorseAudio);
+                    });
                     if (horseAudioRef.current) {
                         horseAudioRef.current.pause();
                         horseAudioRef.current = null;
@@ -373,17 +407,32 @@
                 }
             };
 
-            const prevMessageCountRef = React.useRef(null);
+            const prevGeneralChatCountRef = React.useRef(null);
+            const prevOrderThreadCountRef = React.useRef(null);
+
             useEffect(() => {
-                if (prevMessageCountRef.current === null) {
-                    prevMessageCountRef.current = messages.length;
+                const generalMessages = (messages || []).filter(message => !message.orderId);
+                if (prevGeneralChatCountRef.current === null) {
+                    prevGeneralChatCountRef.current = generalMessages.length;
                     return;
                 }
-                const incomingMessages = messages.slice(prevMessageCountRef.current);
-                const hasNewFromOther = incomingMessages.some(m => m.sender !== currentRole);
-                if (hasNewFromOther) playHorse();
-                prevMessageCountRef.current = messages.length;
-            }, [messages.length]);
+                const incomingGeneralMessages = generalMessages.slice(prevGeneralChatCountRef.current);
+                const hasNewGeneralFromOther = incomingGeneralMessages.some(message => message.sender !== currentRole);
+                if (hasNewGeneralFromOther) playHorse();
+                prevGeneralChatCountRef.current = generalMessages.length;
+            }, [messages, currentRole]);
+
+            useEffect(() => {
+                const orderThreadMessages = (messages || []).filter(message => Boolean(message.orderId));
+                if (prevOrderThreadCountRef.current === null) {
+                    prevOrderThreadCountRef.current = orderThreadMessages.length;
+                    return;
+                }
+                const incomingOrderThreadMessages = orderThreadMessages.slice(prevOrderThreadCountRef.current);
+                const hasNewOrderThreadFromOther = incomingOrderThreadMessages.some(message => message.sender !== currentRole);
+                if (hasNewOrderThreadFromOther) playHorse();
+                prevOrderThreadCountRef.current = orderThreadMessages.length;
+            }, [messages, currentRole]);
             // === HORSE NOTIFICATION END ===
 
             // === MESSAGING FEATURE END ===

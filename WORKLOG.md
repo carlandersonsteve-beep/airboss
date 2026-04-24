@@ -109,6 +109,23 @@ By the end of the session, Steve reported the thread behavior finally looked fix
   - Jet-A: $7.09/gal
   - 100LL: $6.45/gal
 
+## Pilot-prep verification snapshot (2026-04-24)
+### Verified in code/data
+- Kiosk notes now flow into `order.notes`.
+- Ramp queue explicitly sorts by earliest departure first, then creation time.
+- Front Desk active-service filtering now restricts to true `in_progress` aircraft.
+- Service chat persistence supports `senderName` and `tailNumber`.
+
+### Still needs live human validation
+- Full kiosk submit flow.
+- Notes visibly surfacing after kiosk submission.
+- Refresh behavior through chat/handoff/finalize.
+- Same-aircraft concurrency behavior.
+- Ramp card scanability in live use.
+
+### Known issue
+- General chat horse notification remains inconsistent because browser audio permission is still blocking some playback attempts.
+
 ## Known Risks / Follow-up
 - Shared-mode auth/session behavior can still be confusing when browser state is stale.
 - Repo documentation is still partly catch-up documentation, not yet a fully trusted source of truth.
