@@ -96,11 +96,25 @@ By the end of the session, Steve reported the thread behavior finally looked fix
   rather than only generic role labels.
 - This chat is explicitly meant to replace radios.
 
+## Additional hardening pass (later on 2026-04-24)
+- Fixed Front Desk active chat render bug caused by an undefined `orderMessages` reference in `OfficeView`.
+- Simplified thread-message callback contracts so ramp/desk message sends resolve to the correct order more reliably.
+- Extended message persistence to store and return `senderName` and `tailNumber` in both local and Postgres-backed modes.
+- Fixed thread bubble labels so aircraft tail fallback resolves correctly from live thread context, customer/order context, and thread title.
+- Cleaned up service labels from raw internal values like `lav` and `crew_car` to presentation labels like `Lavatory` and `Crew Car`.
+- Strengthened service-chip styling so requested services read like real operational commitments instead of background metadata.
+- Removed the now-redundant Front Desk `Unread Service Chats` top stat as the primary signal and shifted unread attention to the per-aircraft active service cards.
+- Tightened Front Desk `Active Service Chat` to show only aircraft actually in service (`in_progress`).
+- Added fuel prices as a compact header strip on Ramp and Front Desk:
+  - Jet-A: $7.09/gal
+  - 100LL: $6.45/gal
+
 ## Known Risks / Follow-up
 - Shared-mode auth/session behavior can still be confusing when browser state is stale.
-- Repo documentation is stale relative to current code.
-- Many meaningful fixes still appear to be local/uncommitted — commit soon.
-- Message identity/display-name formatting still needs improvement.
+- Repo documentation is still partly catch-up documentation, not yet a fully trusted source of truth.
+- Status semantics still leak some legacy labels (`ready`, `finalized`, `in-progress`) even though canonical workflow is clearer now.
+- Read-state and concurrency behavior still need deliberate hard testing.
+- Fuel prices are currently hardcoded and should move into config/admin later.
 
 ## If Starting Fresh Next Session
 1. Read this WORKLOG
@@ -108,7 +122,9 @@ By the end of the session, Steve reported the thread behavior finally looked fix
 3. Inspect `git status` first — many important changes may still be uncommitted
 4. Start server: `cd ~/Work/GroundCore && bash scripts/local-server.sh restart`
 5. Verify:
-   - kiosk create path
-   - ramp ↔ desk service chat
+   - ramp ↔ desk service chat labels and persistence
+   - Front Desk active-service filtering (`in_progress` only)
+   - service label presentation
+   - fuel price strip placement
    - finalize + draft email
    - front desk gallon totals

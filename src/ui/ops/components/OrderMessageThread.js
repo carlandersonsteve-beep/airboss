@@ -2,6 +2,7 @@ window.AirBossComponents = window.AirBossComponents || {};
 
 window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
   order,
+  customer,
   messages,
   addMessage,
   senderRole = 'RAMP',
@@ -17,7 +18,6 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
   const endRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-  const openedRef = useRef(false);
 
   const threadMessages = useMemo(() => {
     return (messages || [])
@@ -25,12 +25,18 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [messages, order?.id]);
 
-  useEffect(() => {
-    if (!openedRef.current && order?.id) {
-      openedRef.current = true;
-      onOpen && onOpen(order?.id);
-    }
-  }, [order?.id]);
+  const threadTailLabel = useMemo(() => {
+    const messageTail = threadMessages.find(message => message?.tailNumber)?.tailNumber;
+    const titleTail = typeof title === 'string'
+      ? (title.match(/N[0-9A-Z-]+/i)?.[0] || null)
+      : null;
+    return messageTail || customer?.tailNumber || order?.tailNumber || order?.aircraft || titleTail || 'Unknown Tail';
+  }, [threadMessages, customer?.tailNumber, order?.tailNumber, order?.aircraft, title]);
+
+  const handleMarkRead = () => {
+    if (!order?.id || !onOpen) return;
+    onOpen(order.id);
+  };
 
   useLayoutEffect(() => {
     const container = scrollRef.current;
@@ -55,7 +61,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
 
   const handleSend = () => {
     if (!text.trim() || !order?.id) return;
-    addMessage(text.trim(), order.id, order.tailNumber || order.aircraft || null);
+    addMessage(text.trim(), order.id, customer?.tailNumber || order?.tailNumber || order?.aircraft || null);
     setText('');
     inputRef.current?.blur();
   };
@@ -66,6 +72,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
 
   const titleColor = accent === 'blue' ? 'text-blue-900' : 'text-orange-900';
   const badgeColor = accent === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+  const resolvedThreadTail = threadTailLabel;
   const placeholder = senderRole === 'OFFICE'
     ? 'Message the line crew about this aircraft...'
     : 'Message front desk about this aircraft...';
@@ -89,7 +96,11 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-2 mb-3 pr-1">
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto space-y-2 mb-3 pr-1"
+        onClick={handleMarkRead}
+      >
         {threadMessages.length === 0 && (
           <div className="text-sm text-gray-500 bg-white rounded-lg border border-dashed border-gray-300 px-3 py-3">
             {emptyLabel}
@@ -97,6 +108,8 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
         )}
         {threadMessages.map(message => {
           const isSender = message.sender === senderRole;
+          const tailLabel = message.tailNumber || resolvedThreadTail;
+          const speakerLabel = `${message.senderName || message.sender || 'Unknown'}, ${tailLabel}`;
           return (
             <div key={message.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm ${
@@ -104,7 +117,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
                   ? 'bg-blue-600 text-white rounded-tl-sm'
                   : 'bg-gray-700 text-white rounded-tr-sm'
               }`}>
-                <div className="text-[11px] font-bold opacity-80 mb-0.5">{message.sender}</div>
+                <div className="text-[11px] font-bold opacity-80 mb-0.5">{speakerLabel}</div>
                 <div className="text-sm whitespace-pre-wrap break-words">{message.text}</div>
                 <div className="text-[11px] opacity-60 mt-1 text-right">
                   {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -120,6 +133,7 @@ window.AirBossComponents.OrderMessageThread = function OrderMessageThread({
         <textarea
           ref={inputRef}
           value={text}
+          onFocus={handleMarkRead}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {

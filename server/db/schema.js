@@ -44,10 +44,14 @@ create table if not exists order_messages (
   order_id text references orders(id) on delete cascade,
   text text not null,
   sender_role text not null,
+  sender_name text,
+  tail_number text,
   created_at timestamptz not null default now()
 );
 
 alter table order_messages alter column order_id drop not null;
+alter table order_messages add column if not exists sender_name text;
+alter table order_messages add column if not exists tail_number text;
 alter table orders alter column fuel_requested_gallons type numeric using fuel_requested_gallons::numeric;
 alter table orders alter column fuel_actual_gallons type numeric using fuel_actual_gallons::numeric;
 alter table orders add column if not exists fuel_meter_start numeric;

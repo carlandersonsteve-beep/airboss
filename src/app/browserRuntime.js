@@ -197,12 +197,14 @@
   };
 
   const messageService = {
-    createMessagePayload({ text, senderRole, orderId = null, tailNumber = null }) {
+    createMessagePayload({ text, senderRole, senderName = null, orderId = null, tailNumber = null }) {
       if (!text?.trim()) throw new Error('Message text is required');
       return {
         id: Date.now().toString(),
         text: text.trim(),
         sender: senderRole,
+        senderRole,
+        senderName,
         orderId,
         tailNumber,
         createdAt: new Date().toISOString(),

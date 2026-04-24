@@ -571,6 +571,8 @@ export async function createOrderMessage(payload) {
       text: payload.text,
       sender: payload.senderRole,
       senderRole: payload.senderRole,
+      senderName: payload.senderName || null,
+      tailNumber: payload.tailNumber || null,
       createdAt: payload.createdAt || new Date().toISOString(),
     };
 
@@ -581,9 +583,9 @@ export async function createOrderMessage(payload) {
 
   const result = await query(`
     insert into order_messages (
-      id, order_id, text, sender_role, created_at
+      id, order_id, text, sender_role, sender_name, tail_number, created_at
     ) values (
-      $1, $2, $3, $4, coalesce($5, now())
+      $1, $2, $3, $4, $5, $6, coalesce($7, now())
     )
     returning *
   `, [
@@ -591,6 +593,8 @@ export async function createOrderMessage(payload) {
     payload.orderId,
     payload.text,
     payload.senderRole,
+    payload.senderName || null,
+    payload.tailNumber || null,
     payload.createdAt || null,
   ]);
 
@@ -957,6 +961,8 @@ function mapMessageRow(row) {
     text: row.text,
     sender: row.sender_role,
     senderRole: row.sender_role,
+    senderName: row.sender_name ?? null,
+    tailNumber: row.tail_number ?? null,
     createdAt: row.created_at,
   };
 }

@@ -105,14 +105,14 @@
 <body class="bg-gray-50">
     <div id="root"></div>
 
-    <script src="src/app/browserRuntime.js"></script>
+    <script src="src/app/browserRuntime.js?v=20260424d"></script>
     <script src="src/ui/ops/components/componentBridge.js?v=20260322g"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260424c"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderMessageThread.js?v=20260424h"></script>
     <script type="text/babel" src="src/ui/ops/components/CompletionModal.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260327u"></script>
-    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260424b"></script>
+    <script type="text/babel" src="src/ui/ops/components/OrderCard.js?v=20260424a"></script>
+    <script type="text/babel" src="src/ui/ops/components/RampView.js?v=20260424b"></script>
+    <script type="text/babel" src="src/ui/ops/components/ServicePanel.js?v=20260424a"></script>
+    <script type="text/babel" src="src/ui/ops/components/OfficeView.js?v=20260424j"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -489,7 +489,13 @@
             }, [orderThreadReadState, appMode]);
 
             const createMessageRecord = (text, sender, orderId = null, tailNumber = null) => (
-                runtime.messageService.createMessagePayload({ text, senderRole: sender, orderId, tailNumber })
+                runtime.messageService.createMessagePayload({
+                    text,
+                    senderRole: sender,
+                    senderName: session?.displayName || session?.username || sender,
+                    orderId,
+                    tailNumber,
+                })
             );
 
             const appendMessageRecord = (messageRecord) => {
@@ -1147,11 +1153,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 updateOrderStatus={updateOrderStatus}
                                 addTicket={addTicket}
                                 messages={messages}
-                                addMessage={(text, a, b, c) => {
-                                    const orderId = (typeof a === 'string' && (a.startsWith('ord-') || a.includes('-'))) ? a : b;
-                                    const tailNumber = (typeof a === 'string' && (a.startsWith('N') || a.startsWith('n'))) ? a : (typeof b === 'string' && (b.startsWith('N') || b.startsWith('n')) ? b : c);
-                                    return addMessage(text, 'RAMP', orderId, tailNumber);
-                                }}
+                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'RAMP', orderId, tailNumber)}
                                 getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('RAMP', orderId)}
                                 markOrderThreadRead={(orderId) => markOrderThreadRead('RAMP', orderId)}
                                 startOrderService={startOrderService}
@@ -1169,11 +1171,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 deleteTicket={deleteTicket}
                                 generateCompletionEmail={generateCompletionEmail}
                                 messages={messages}
-                                addMessage={(text, a, b, c) => {
-                                    const orderId = (typeof a === 'string' && (a.startsWith('ord-') || a.includes('-'))) ? a : b;
-                                    const tailNumber = (typeof a === 'string' && (a.startsWith('N') || a.startsWith('n'))) ? a : (typeof b === 'string' && (b.startsWith('N') || b.startsWith('n')) ? b : c);
-                                    return addMessage(text, 'OFFICE', orderId, tailNumber);
-                                }}
+                                addMessage={(text, orderId, tailNumber) => addMessage(text, 'OFFICE', orderId, tailNumber)}
                                 getUnreadOrderThreadCount={(orderId) => getUnreadOrderThreadCount('OFFICE', orderId)}
                                 markOrderThreadRead={(orderId) => markOrderThreadRead('OFFICE', orderId)}
                                 closeOrder={closeOrder}

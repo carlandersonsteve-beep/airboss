@@ -36,6 +36,25 @@ window.AirBossComponents.OrderCard = function OrderCard({
   const [fuelTypeInput, setFuelTypeInput] = useState('');
   const [fuelVerifyError, setFuelVerifyError] = useState(false);
 
+  const SERVICE_LABELS = {
+    lav: 'Lavatory',
+    crew_car: 'Crew Car',
+    tiedown: 'Tie-Down',
+    gpu: 'GPU',
+    catering: 'Catering',
+    hangar: 'Hangar',
+    overnight: 'Overnight',
+    top_off: 'Top Off',
+  };
+
+  const formatServiceLabel = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return SERVICE_LABELS[raw] || raw
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   const statusColors = {
     pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
     'in-progress': 'bg-blue-100 text-blue-800 border-blue-300',
@@ -154,8 +173,15 @@ window.AirBossComponents.OrderCard = function OrderCard({
           </div>
         )}
         {order.services && order.services.length > 0 && (
-          <div className="bg-gray-50 p-2 rounded mt-2">
-            <span className="font-medium">Services:</span> {order.services.join(', ')}
+          <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mt-2">
+            <div className="text-xs uppercase tracking-wide font-black text-indigo-700 mb-2">Requested Services</div>
+            <div className="flex flex-wrap gap-2">
+              {order.services.map(service => (
+                <span key={service} className="bg-white border border-indigo-300 text-indigo-900 px-3 py-1 rounded-full text-sm font-bold shadow-sm">
+                  {formatServiceLabel(service)}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -199,6 +225,7 @@ window.AirBossComponents.OrderCard = function OrderCard({
       {isInProgressStatus(order.status) && !compact && (
         <OrderMessageThread
           order={order}
+          customer={customer}
           messages={messages}
           addMessage={addMessage}
           senderRole="RAMP"

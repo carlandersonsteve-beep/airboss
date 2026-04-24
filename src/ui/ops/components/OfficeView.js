@@ -1,5 +1,10 @@
 window.AirBossComponents = window.AirBossComponents || {};
 
+const CURRENT_FUEL_PRICES = {
+  jetA: 7.09,
+  avgas100LL: 6.45,
+};
+
 window.AirBossComponents.OfficeView = function OfficeView({
   orders,
   customers,
@@ -16,6 +21,24 @@ window.AirBossComponents.OfficeView = function OfficeView({
   closeOrder,
 }) {
   const { useState } = React;
+  const SERVICE_LABELS = {
+    lav: 'Lavatory',
+    crew_car: 'Crew Car',
+    tiedown: 'Tie-Down',
+    gpu: 'GPU',
+    catering: 'Catering',
+    hangar: 'Hangar',
+    overnight: 'Overnight',
+    top_off: 'Top Off',
+  };
+
+  const formatServiceLabel = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return SERVICE_LABELS[raw] || raw
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
   const deps = window.AirBossComponentBridge.requireDeps(
     'OfficeView',
     window.AirBossDeps || {},
@@ -39,9 +62,8 @@ window.AirBossComponents.OfficeView = function OfficeView({
   const [confirmingSentOrderId, setConfirmingSentOrderId] = useState(null);
   const pendingTickets = tickets.filter(t => t.status === 'pending');
   const readyToBillOrders = getReadyForFrontDeskOrders(orders);
-  const activeServiceOrders = getActiveRampOrders(orders);
+  const activeServiceOrders = getActiveRampOrders(orders).filter(order => String(order.status).replace(/-/g, '_') === 'in_progress');
   const unreadReadyThreads = readyToBillOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
-  const unreadActiveThreads = activeServiceOrders.filter(order => (getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0) > 0).length;
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -144,9 +166,15 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-4">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">Front Desk</h2>
         <p className="text-gray-600">Ready-to-bill aircraft, handoff notes, and order-level communication</p>
+      </div>
+
+      <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <div className="font-black uppercase tracking-wide text-emerald-800">Fuel Prices</div>
+        <div className="text-gray-700">Jet-A <span className="font-black text-emerald-700">${CURRENT_FUEL_PRICES.jetA.toFixed(2)}/gal</span></div>
+        <div className="text-gray-700">100LL <span className="font-black text-blue-700">${CURRENT_FUEL_PRICES.avgas100LL.toFixed(2)}/gal</span></div>
       </div>
 
       {preDepartureOrders.length > 0 && (
@@ -196,14 +224,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="stat-card p-6 border-l-4 border-orange-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Ready to Bill</div>
           <div className="text-3xl font-bold text-orange-600 mt-2">{filter === 'archive' ? 0 : filteredOrders.length}</div>
-        </div>
-        <div className="stat-card p-6 border-l-4 border-red-500">
-          <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Unread Service Chats</div>
-          <div className="text-3xl font-bold text-red-600 mt-2">{unreadActiveThreads}</div>
         </div>
         <div className="stat-card p-6 border-l-4 border-green-500">
           <div className="text-gray-500 text-sm font-medium uppercase tracking-wide">Jet-A ({filter})</div>
@@ -239,7 +263,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
               const unreadCount = getUnreadOrderThreadCount ? getUnreadOrderThreadCount(order.id) : 0;
               const requestedFuel = order.fuelRequestedGallons ?? order.fuelQuantity ?? 0;
               return (
-                <div key={`active-${order.id}`} className="border border-blue-200 rounded-xl p-4 bg-blue-50/40">
+                <div key={`active-${order.id}`} className={`border rounded-xl p-4 transition ${unreadCount > 0 ? 'border-red-300 bg-red-50/50 ring-2 ring-red-200 shadow-lg' : 'border-blue-200 bg-blue-50/40'}`}>
                   <div className="flex justify-between items-start gap-3 mb-3 flex-wrap">
                     <div>
                       <div className="font-bold text-lg text-blue-900">{customer?.tailNumber || order.tailNumber || 'Unknown Tail'}</div>
@@ -253,24 +277,27 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         {String(order.status).replace(/[-_]/g, ' ').toUpperCase()}
                       </span>
                       {unreadCount > 0 && (
-                        <div className="text-xs font-black px-2 py-1 rounded-full bg-red-600 text-white">{unreadCount} new</div>
+                        <div className="text-xs font-black px-2.5 py-1 rounded-full bg-red-600 text-white animate-pulse shadow-sm">{unreadCount} new</div>
                       )}
                     </div>
                   </div>
 
-                  <OrderMessageThread
-                    key={`active-thread-${order.id}-${orderMessages.length}`}
-                    order={order}
-                    messages={messages}
-                    addMessage={addMessage}
-                    senderRole="OFFICE"
-                    title={`Service Chat — ${customer?.tailNumber || order.tailNumber || 'Unknown Tail'}`}
-                    emptyLabel="No service messages yet. Use this to coordinate with the line crew instead of the radio."
-                    accent="blue"
-                    compact={true}
-                    unreadCount={unreadCount}
-                    onOpen={markOrderThreadRead}
-                  />
+                  <div onClick={() => unreadCount > 0 && markOrderThreadRead && markOrderThreadRead(order.id)}>
+                    <OrderMessageThread
+                      key={`active-thread-${order.id}`}
+                      order={order}
+                      customer={customer}
+                      messages={messages}
+                      addMessage={addMessage}
+                      senderRole="OFFICE"
+                      title={`Service Chat — ${customer?.tailNumber || order.tailNumber || 'Unknown Tail'}`}
+                      emptyLabel="No service messages yet. Use this to coordinate with the line crew instead of the radio."
+                      accent="blue"
+                      compact={true}
+                      unreadCount={unreadCount}
+                      onOpen={markOrderThreadRead}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -355,6 +382,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                   <OrderMessageThread
                     key={`ready-thread-${order.id}-${orderMessages.length}`}
                     order={order}
+                    customer={customer}
                     messages={messages}
                     addMessage={addMessage}
                     senderRole="OFFICE"
@@ -436,7 +464,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
 
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="text-xs uppercase tracking-wide text-gray-500 font-bold mb-2">Services & Notes</div>
-                <div className="text-sm text-gray-800"><span className="font-medium">Services:</span> {(finalizeOrder.services && finalizeOrder.services.length > 0) ? finalizeOrder.services.join(', ') : 'None'}</div>
+                <div className="text-sm text-gray-800">
+                  <span className="font-medium">Services:</span>{' '}
+                  {(finalizeOrder.services && finalizeOrder.services.length > 0) ? finalizeOrder.services.map(formatServiceLabel).join(', ') : 'None'}
+                </div>
                 <div className="text-sm text-gray-800 mt-2"><span className="font-medium">Handoff Notes:</span> {finalizeOrder.completionNotes || 'None'}</div>
               </div>
             </div>

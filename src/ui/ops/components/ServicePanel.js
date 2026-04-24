@@ -12,9 +12,24 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
   onBack,
 }) {
   const { useState } = React;
-  const formatLabel = (value) => String(value || '')
-    .replace(/[_-]/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  const SERVICE_LABELS = {
+    lav: 'Lavatory',
+    crew_car: 'Crew Car',
+    tiedown: 'Tie-Down',
+    gpu: 'GPU',
+    catering: 'Catering',
+    hangar: 'Hangar',
+    overnight: 'Overnight',
+    top_off: 'Top Off',
+  };
+
+  const formatLabel = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return SERVICE_LABELS[raw] || raw
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
   const deps = window.AirBossComponentBridge.requireDeps(
     'ServicePanel',
     window.AirBossDeps || {},
@@ -130,13 +145,13 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
               )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs uppercase tracking-wide font-bold text-gray-500">Services</div>
+            <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4 shadow-sm">
+              <div className="text-xs uppercase tracking-wide font-black text-indigo-700">Requested Services</div>
               {(order.services && order.services.length > 0) ? (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {order.services.map(service => (
-                    <span key={service} className="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {service}
+                    <span key={service} className="bg-white border border-indigo-300 text-indigo-900 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm">
+                      {formatLabel(service)}
                     </span>
                   ))}
                 </div>
@@ -192,6 +207,7 @@ window.AirBossComponents.ServicePanel = function ServicePanel({
             <OrderMessageThread
               key={`service-thread-${order.id}-${messages ? messages.filter(message => message.orderId === order.id).length : 0}`}
               order={order}
+              customer={customer}
               messages={messages}
               addMessage={addMessage}
               senderRole="RAMP"

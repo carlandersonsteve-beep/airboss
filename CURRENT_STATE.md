@@ -35,6 +35,9 @@ Starts server at http://localhost:8792.
 - Kiosk create path was repaired on 2026-04-24 to allow consistent kiosk source handling and automatic ID generation.
 - Dummy traffic was successfully seeded after the kiosk create-path repair.
 - Active service coordination is now being treated as a first-class workflow, not a side note on the ready-to-bill card.
+- Service chat now renders with stronger aircraft context (tail number fallback + sender name persistence).
+- Front Desk Active Service Chat is now restricted to true `in_progress` aircraft rather than all ramp-active statuses.
+- Fuel prices are temporarily surfaced as a compact info strip under the page header on Ramp and Front Desk.
 
 ## Current Workflow Direction
 GroundCore is moving toward two distinct front-desk surfaces:
@@ -51,13 +54,13 @@ GroundCore is moving toward two distinct front-desk surfaces:
 ## Known Weak Points / Tech Debt
 - `index.html` remains large and still mixes runtime wiring with extracted component loading.
 - Extracted component cache-busting matters; stale browser JS caused repeated confusion during recent fixes.
-- Message identity formatting still needs improvement so chat reads like real ops traffic (name + tail number), not just generic roles.
+- Message identity formatting is improved, but read-state semantics and concurrency behavior still need more hard testing.
 - Repo docs were stale and needed manual refresh.
-- Some significant changes may still be uncommitted.
+- Fuel prices are currently hardcoded and should eventually move to admin/config.
 
 ## Next Recommended Steps
-1. Improve service-chat message labeling (person name + tail number)
-2. Commit current local fixes before more testing piles on
-3. Keep hammering ramp ↔ desk workflow with real pilot-like scenarios
-4. Continue hardening shared auth/session clarity
-5. Prepare for Render + Supabase deployment once local/shared workflow feels trustworthy
+1. Continue hardening ramp ↔ desk workflow with real pilot-like scenarios
+2. Clean up status semantics so legacy labels stop leaking through (`ready`, `finalized`, `in-progress` vs canonical values)
+3. Tighten handoff / finalize clarity on Front Desk
+4. Hard-test read-state and concurrency edge cases
+5. Move fuel prices into config/admin once the workflow stabilizes

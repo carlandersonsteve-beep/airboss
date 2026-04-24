@@ -1,5 +1,10 @@
 window.AirBossComponents = window.AirBossComponents || {};
 
+const CURRENT_FUEL_PRICES = {
+  jetA: 7.09,
+  avgas100LL: 6.45,
+};
+
 window.AirBossComponents.RampView = function RampView({
   customers,
   orders,
@@ -119,7 +124,7 @@ window.AirBossComponents.RampView = function RampView({
         </button>
       </div>
 
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
         <h2 className="text-3xl font-bold text-gray-800">Ramp Operations</h2>
         <div className="flex gap-3 flex-wrap">
           <button
@@ -143,6 +148,12 @@ window.AirBossComponents.RampView = function RampView({
             + Aircraft Arrival
           </button>
         </div>
+      </div>
+
+      <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <div className="font-black uppercase tracking-wide text-emerald-800">Fuel Prices</div>
+        <div className="text-gray-700">Jet-A <span className="font-black text-emerald-700">${CURRENT_FUEL_PRICES.jetA.toFixed(2)}/gal</span></div>
+        <div className="text-gray-700">100LL <span className="font-black text-blue-700">${CURRENT_FUEL_PRICES.avgas100LL.toFixed(2)}/gal</span></div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
