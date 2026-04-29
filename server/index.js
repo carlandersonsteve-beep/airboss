@@ -316,11 +316,11 @@ const server = http.createServer(async (req, res) => {
     const result = await router.handle(req, requestUrl);
 
     if (!result) {
-      sendJson(res, 404, { ok: false, error: 'Not found' });
+      sendJson(res, 404, { ok: false, error: 'Not found' }, {}, req);
       return;
     }
 
-    sendJson(res, result.statusCode || 200, result.body, result.headers || {});
+    sendJson(res, result.statusCode || 200, result.body, result.headers || {}, req);
   } catch (error) {
     if (error instanceof AppError) {
       console.error('GroundCore app error:', req.method, req.url, error.message, error.details || null);
@@ -328,7 +328,7 @@ const server = http.createServer(async (req, res) => {
         ok: false,
         error: error.message,
         details: error.details || null,
-      });
+      }, {}, req);
       return;
     }
 
@@ -337,7 +337,7 @@ const server = http.createServer(async (req, res) => {
       ok: false,
       error: 'Internal server error',
       detail: error instanceof Error ? error.message : String(error),
-    });
+    }, {}, req);
   }
 });
 
@@ -463,7 +463,8 @@ function parseCookies(header) {
 }
 
 function createCheckInCookie(token) {
-  return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/; SameSite=Lax`;
+  const secure = env.host !== '127.0.0.1' && env.host !== 'localhost' ? '; Secure' : '';
+  return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/; HttpOnly; SameSite=Lax${secure}`;
 }
 
 async function ensureRuntimeReady() {
@@ -509,12 +510,21 @@ async function getReadiness() {
   }
 }
 
-function sendJson(res, statusCode, payload, extraHeaders = {}) {
+function resolveAllowedOrigin(requestOrigin) {
+  if (!requestOrigin) return 'null';
+  if (env.allowedOrigins.length === 0) return 'null';
+  return env.allowedOrigins.includes(requestOrigin) ? requestOrigin : 'null';
+}
+
+function sendJson(res, statusCode, payload, extraHeaders = {}, req = null) {
+  const requestOrigin = req?.headers?.origin || '';
+  const allowOrigin = resolveAllowedOrigin(requestOrigin);
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Vary': 'Origin',
     ...extraHeaders,
   };
 

@@ -4,6 +4,9 @@
 - A Render account
 - A Supabase Postgres connection string (`DATABASE_URL`)
 - A stable `SESSION_SECRET` (Render can generate this)
+- A distinct `CHECKIN_SECRET`
+- Explicit `ALLOWED_ORIGINS` for the production frontend origin(s)
+- Explicit `HOST` for the deployment environment
 
 ## Fast path
 1. Push this repo to GitHub.
@@ -14,7 +17,10 @@
    - health check: `/health`
 4. Set `DATABASE_URL` in Render from your Supabase Postgres connection string.
 5. Let Render generate `SESSION_SECRET` or provide your own.
-6. Deploy.
+6. Set a distinct `CHECKIN_SECRET`.
+7. Set `ALLOWED_ORIGINS` to the exact production app origin(s).
+8. Set `HOST` deliberately for the deployment target.
+9. Deploy.
 
 ## After first deploy
 - Visit `/health`

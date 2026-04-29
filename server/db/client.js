@@ -4,6 +4,10 @@ import { AppError } from '../lib/errors.js';
 
 let pool = null;
 
+function shouldUseSsl(connectionString) {
+  return !(connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
+}
+
 export function getPool() {
   if (!env.databaseUrl) {
     throw new AppError('DATABASE_URL is not configured', 503, {
@@ -14,9 +18,9 @@ export function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: env.databaseUrl,
-      ssl: env.databaseUrl.includes('localhost') || env.databaseUrl.includes('127.0.0.1')
-        ? false
-        : { rejectUnauthorized: false },
+      ssl: shouldUseSsl(env.databaseUrl)
+        ? { rejectUnauthorized: true }
+        : false,
     });
   }
 
