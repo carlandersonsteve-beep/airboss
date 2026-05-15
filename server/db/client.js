@@ -8,6 +8,28 @@ function shouldUseSsl(connectionString) {
   return !(connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
 }
 
+function resolveSslConfig(connectionString) {
+  if (!shouldUseSsl(connectionString)) return false;
+
+  const mode = env.databaseSslMode;
+  const baseConfig = env.databaseSslCa
+    ? { ca: env.databaseSslCa }
+    : {};
+
+  if (mode === 'disable') return false;
+  if (mode === 'require' || mode === 'no-verify') {
+    return {
+      ...baseConfig,
+      rejectUnauthorized: false,
+    };
+  }
+
+  return {
+    ...baseConfig,
+    rejectUnauthorized: true,
+  };
+}
+
 export function getPool() {
   if (!env.databaseUrl) {
     throw new AppError('DATABASE_URL is not configured', 503, {
@@ -18,9 +40,7 @@ export function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: env.databaseUrl,
-      ssl: shouldUseSsl(env.databaseUrl)
-        ? { rejectUnauthorized: true }
-        : false,
+      ssl: resolveSslConfig(env.databaseUrl),
     });
   }
 

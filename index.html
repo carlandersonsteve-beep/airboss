@@ -173,15 +173,13 @@
 
         const api = {
             async request(path, options = {}) {
-                const session = Storage.get(SESSION_KEY);
-                const token = session?.token;
                 const mergedHeaders = {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     ...(options.headers || {}),
                 };
                 const response = await fetch(`${API_BASE_URL}${path}`, {
                     ...options,
+                    credentials: 'include',
                     headers: mergedHeaders,
                 });
 
@@ -471,7 +469,7 @@
                 };
 
                 const loadBootstrap = async () => {
-                    if (!session?.token) {
+                    if (!session?.username) {
                         setBackendMode('signin-required');
                         setBackendWarning('');
                         return;
@@ -502,13 +500,13 @@
 
                 loadConfig();
                 loadBootstrap();
-                const intervalId = session?.token ? window.setInterval(loadBootstrap, 5000) : null;
+                const intervalId = session?.username ? window.setInterval(loadBootstrap, 5000) : null;
 
                 return () => {
                     cancelled = true;
                     if (intervalId) window.clearInterval(intervalId);
                 };
-            }, [session?.token, appMode]);
+            }, [session?.username, appMode]);
 
             // Save browser cache only in local dev.
             useEffect(() => {
@@ -597,8 +595,10 @@
                 setAuthError('');
                 try {
                     const response = await api.login(loginForm.username.trim(), loginForm.password);
-                    setSession(response.user);
-                    Storage.set(SESSION_KEY, response.user);
+                    const nextSession = { ...response.user };
+                    delete nextSession.token;
+                    setSession(nextSession);
+                    Storage.set(SESSION_KEY, nextSession);
                     if (response.user.mustChangePassword) return;
                     if (response.user.role === 'ADMIN') setView('office');
                     if (response.user.role === 'RAMP') setView('ramp');
@@ -622,8 +622,10 @@
 
                 try {
                     const response = await api.changePassword(loginForm.username.trim(), loginForm.password, passwordSetup.newPassword);
-                    setSession(response.user);
-                    Storage.set(SESSION_KEY, response.user);
+                    const nextSession = { ...response.user };
+                    delete nextSession.token;
+                    setSession(nextSession);
+                    Storage.set(SESSION_KEY, nextSession);
                     setLoginForm(prev => ({ ...prev, password: passwordSetup.newPassword }));
                     setPasswordSetup({ newPassword: '', confirmPassword: '' });
                     if (response.user.role === 'ADMIN') setView('office');
@@ -637,7 +639,7 @@
 
             const handleLogout = async () => {
                 try {
-                    if (session?.token) {
+                    if (session?.username) {
                         await api.logout();
                     }
                 } catch (error) {
@@ -990,7 +992,8 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         value={loginForm.username}
                                         onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-                                        placeholder="steve"
+                                        placeholder="Enter assigned username"
+                                        autoComplete="username"
                                     />
                                 </div>
                                 <div>
@@ -1002,6 +1005,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                                         placeholder="Enter password"
+                                        autoComplete="current-password"
                                     />
                                 </div>
                                 <button
@@ -1010,11 +1014,10 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 >
                                     Sign In
                                 </button>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Admin</span><br />steve / groundcore-steve</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Front Desk</span><br />tacie / groundcore-tacie</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Ramp</span><br />ramp / groundcore-ramp</div>
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"><span className="font-bold">Kiosk</span><br />kiosk / groundcore-kiosk</div>
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                    <div className="font-semibold">Pilot-safe access note</div>
+                                    <div className="mt-1">GroundCore no longer displays seeded credentials on this screen.</div>
+                                    <div className="mt-2 text-amber-800">Operators should distribute assigned usernames and temporary passwords out-of-band, then require each user to complete the first-login password change flow before normal use.</div>
                                 </div>
                             </div>
                         </div>
@@ -1028,7 +1031,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
                             <div className="text-center mb-6">
                                 <div className="text-3xl font-black mustang-red-text mb-2">Set Your Password</div>
-                                <div className="text-gray-600">Welcome, {session.displayName || session.username}. Change your temporary password before continuing.</div>
+                                <div className="text-gray-600">Welcome, {session.displayName || session.username}. Your temporary password must be replaced before GroundCore will unlock the rest of the ops surface.</div>
                             </div>
                             {authError && (
                                 <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
@@ -1036,6 +1039,9 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                 </div>
                             )}
                             <div className="space-y-4">
+                                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                    Use a private password that is not shared with other team members. After this step, the temporary seeded password should be treated as expired.
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                                     <input
@@ -1044,6 +1050,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         onChange={(e) => setPasswordSetup({ ...passwordSetup, newPassword: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                                         placeholder="At least 8 characters"
+                                        autoComplete="new-password"
                                     />
                                 </div>
                                 <div>
@@ -1055,6 +1062,7 @@ Phone: 605.224.9000  |  Toll Free: 1.800.456.1712
                                         onKeyDown={(e) => e.key === 'Enter' && handlePasswordChange()}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                                         placeholder="Repeat new password"
+                                        autoComplete="new-password"
                                     />
                                 </div>
                                 <button

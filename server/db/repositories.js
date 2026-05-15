@@ -945,13 +945,20 @@ function mapOrderRow(row) {
     completionNotes: row.completion_notes,
     completedAt: row.completed_at,
     arrivalAt: row.arrival_at,
-    departureDate: row.departure_date,
+    departureDate: normalizeDateOnlyValue(row.departure_date),
     departureTime: row.departure_time,
     purpose: row.purpose,
     source: row.source,
     preDepartureSent: row.pre_departure_sent,
     preDepartureSentAt: row.pre_departure_sent_at,
   };
+}
+
+function normalizeDateOnlyValue(value) {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const stringValue = String(value);
+  return stringValue.includes('T') ? stringValue.slice(0, 10) : stringValue;
 }
 
 function mapMessageRow(row) {

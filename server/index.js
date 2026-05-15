@@ -133,12 +133,13 @@ router.post('/login', async ({ body, req }) => {
   }
 
   const sessionRecord = await issueAppSession(user, req);
+  const sessionToken = createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret);
   return {
     ok: true,
     user: {
       ...user,
-      token: createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret),
     },
+    cookie: createSessionCookie(sessionToken),
   };
 });
 
@@ -159,12 +160,13 @@ router.post('/change-password', async ({ body, req }) => {
   }
 
   const sessionRecord = await issueAppSession(user, req);
+  const sessionToken = createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret);
   return {
     ok: true,
     user: {
       ...user,
-      token: createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret),
     },
+    cookie: createSessionCookie(sessionToken),
   };
 });
 
@@ -173,7 +175,7 @@ router.post('/logout', async ({ req }) => {
   if (session?.sessionId) {
     await revokeAppSession(session.sessionId);
   }
-  return { ok: true };
+  return { ok: true, cookie: clearSessionCookie() };
 });
 
 router.post('/customers', async ({ body, req }) => {
@@ -226,27 +228,33 @@ router.post('/checkin/orders', async ({ body, req }) => {
 });
 
 router.post('/messages', async ({ body, req }) => {
-  if (env.databaseUrl) {
-    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
-  }
+  const session = env.databaseUrl
+    ? await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP'])
+    : getSessionTokenPayload(req);
+  const senderRole = resolveAuthorizedRole(session);
   return {
     ok: true,
     item: await createOrderMessage({
       ...(body || {}),
       id: body?.id || crypto.randomUUID(),
       orderId: null,
+      senderRole,
+      sender: senderRole,
     }),
   };
 });
 
 router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const senderRole = resolveAuthorizedRole(session);
   return {
     ok: true,
     item: await createOrderMessage({
       ...(body || {}),
       id: body?.id || crypto.randomUUID(),
       orderId: params[0],
+      senderRole,
+      sender: senderRole,
     }),
   };
 });
@@ -289,14 +297,15 @@ router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
 });
 
 router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body, req }) => {
-  if (env.databaseUrl) {
-    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
-  }
-  requireField(body?.role, 'role');
+  const session = env.databaseUrl
+    ? await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP'])
+    : getSessionTokenPayload(req);
+  const role = resolveAuthorizedRole(session) || body?.role;
+  requireField(role, 'role');
   const item = await upsertThreadRead({
     orderId: params[0],
-    role: body.role,
-    lastReadAt: body.lastReadAt ? new Date(body.lastReadAt).toISOString() : null,
+    role,
+    lastReadAt: body?.lastReadAt ? new Date(body.lastReadAt).toISOString() : null,
   });
 
   return {
@@ -355,7 +364,9 @@ ensureRuntimeReady()
 
 function getSessionTokenPayload(req) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  const cookies = parseCookies(req.headers.cookie || '');
+  const token = bearerToken || cookies.groundcore_session;
   return verifySessionToken(token, env.sessionSecret);
 }
 
@@ -462,9 +473,26 @@ function parseCookies(header) {
   );
 }
 
+function cookieSecurityFlags() {
+  const secure = env.isSecureCookieEnvironment ? '; Secure' : '';
+  return `; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function resolveAuthorizedRole(session) {
+  if (!session?.role) return null;
+  return session.role === 'ADMIN' ? 'OFFICE' : session.role;
+}
+
 function createCheckInCookie(token) {
-  const secure = env.host !== '127.0.0.1' && env.host !== 'localhost' ? '; Secure' : '';
-  return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/; HttpOnly; SameSite=Lax${secure}`;
+  return `groundcore_checkin=${encodeURIComponent(token)}; Max-Age=600; Path=/${cookieSecurityFlags()}`;
+}
+
+function createSessionCookie(token) {
+  return `groundcore_session=${encodeURIComponent(token)}; Max-Age=${12 * 60 * 60}; Path=/${cookieSecurityFlags()}`;
+}
+
+function clearSessionCookie() {
+  return `groundcore_session=; Max-Age=0; Path=/${cookieSecurityFlags()}`;
 }
 
 async function ensureRuntimeReady() {
@@ -510,20 +538,39 @@ async function getReadiness() {
   }
 }
 
-function resolveAllowedOrigin(requestOrigin) {
+function resolveAllowedOrigin(requestOrigin, req = null) {
   if (!requestOrigin) return 'null';
+
+  const requestHost = req?.headers?.host || '';
+  const sameOriginPrefixes = requestHost
+    ? [`http://${requestHost}`, `https://${requestHost}`]
+    : [];
+
+  if (sameOriginPrefixes.some((prefix) => requestOrigin === prefix)) {
+    return requestOrigin;
+  }
+
   if (env.allowedOrigins.length === 0) return 'null';
   return env.allowedOrigins.includes(requestOrigin) ? requestOrigin : 'null';
 }
 
 function sendJson(res, statusCode, payload, extraHeaders = {}, req = null) {
   const requestOrigin = req?.headers?.origin || '';
-  const allowOrigin = resolveAllowedOrigin(requestOrigin);
+  const allowOrigin = resolveAllowedOrigin(requestOrigin, req);
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Cache-Control': 'no-store',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
     'Vary': 'Origin',
     ...extraHeaders,
   };
@@ -532,6 +579,10 @@ function sendJson(res, statusCode, payload, extraHeaders = {}, req = null) {
     headers['Set-Cookie'] = payload.cookie;
   }
 
+  const responseBody = payload && typeof payload === 'object' && 'cookie' in payload
+    ? Object.fromEntries(Object.entries(payload).filter(([key]) => key !== 'cookie'))
+    : payload;
+
   res.writeHead(statusCode, headers);
-  res.end(JSON.stringify(payload, null, 2));
+  res.end(JSON.stringify(responseBody, null, 2));
 }

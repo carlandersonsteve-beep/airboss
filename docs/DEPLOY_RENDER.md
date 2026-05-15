@@ -7,6 +7,7 @@
 - A distinct `CHECKIN_SECRET`
 - Explicit `ALLOWED_ORIGINS` for the production frontend origin(s)
 - Explicit `HOST` for the deployment environment
+- `SECURE_COOKIES=true` if your hosted environment terminates TLS upstream but does not expose an HTTPS host string to Node
 
 ## Fast path
 1. Push this repo to GitHub.
@@ -24,12 +25,15 @@
 
 ## After first deploy
 - Visit `/health`
+- Run `npm run smoke:auth-cookie` against the deployed/shared app (set `SMOKE_BASE_URL`, `SMOKE_ORIGIN`, and seeded credentials as needed)
 - Log in through the ops UI
+- Confirm each seeded user is forced through the first-login password change path
 - Confirm kiosk + ops + front desk flow
 - Install as a PWA from the browser
 
 ## Notes
 - GroundCore serves both frontend and backend from one Node service.
 - Kiosk check-in remains open by design.
-- Ops write routes now require a signed session token.
+- Ops auth now uses an HttpOnly `groundcore_session` cookie; frontend requests must allow credentials and `ALLOWED_ORIGINS` must be explicit when crossing origins.
+- The API now returns `Access-Control-Allow-Credentials: true` and hosted-safe security headers; do not use `*` for allowed origins.
 - For production, use Supabase Postgres instead of the local file store.

@@ -12,7 +12,8 @@
     "local:restart": "bash scripts/local-server.sh restart",
     "local:status": "bash scripts/local-server.sh status",
     "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js",
-    "db:seed-users": "node --env-file-if-exists=.env server/scripts/seed-users.js"
+    "db:seed-users": "node --env-file-if-exists=.env server/scripts/seed-users.js",
+    "smoke:auth-cookie": "node scripts/auth-cookie-smoke.mjs"
   },
   "engines": {
     "node": ">=22"
