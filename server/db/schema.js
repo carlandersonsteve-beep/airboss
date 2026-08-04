@@ -114,4 +114,18 @@ alter table app_users alter column password drop not null;
 alter table app_users add column if not exists password_hash text;
 alter table app_users add column if not exists must_change_password boolean not null default true;
 alter table app_users add column if not exists last_login_at timestamptz;
+
+alter table customers enable row level security;
+alter table orders enable row level security;
+alter table order_messages enable row level security;
+alter table alerts enable row level security;
+alter table thread_reads enable row level security;
+alter table app_users enable row level security;
+alter table app_sessions enable row level security;
+
+revoke all privileges on all tables in schema public from anon;
+revoke all privileges on all tables in schema public from authenticated;
+
+alter default privileges for role postgres in schema public revoke all on tables from anon;
+alter default privileges for role postgres in schema public revoke all on tables from authenticated;
 `;

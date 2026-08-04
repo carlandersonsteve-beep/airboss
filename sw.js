@@ -1,4 +1,4 @@
-const CACHE_NAME = 'groundcore-shell-v1';
+const CACHE_NAME = 'groundcore-shell-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/manifest.webmanifest',
   '/assets/icon-192.svg',
   '/assets/icon-512.svg',
+  '/assets/kiosk-wood-bg.jpg',
   '/src/app/browserRuntime.js',
   '/src/ui/ops/components/componentBridge.js',
   '/src/ui/ops/components/OrderMessageThread.js',

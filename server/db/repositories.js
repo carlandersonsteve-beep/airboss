@@ -721,6 +721,35 @@ export async function authenticateUser({ username, password }) {
   };
 }
 
+export async function getAppUserByUsername(username) {
+  requireField(username, 'username');
+
+  if (!env.databaseUrl) {
+    const store = getLocalStore();
+    const user = store.users.find((item) => item.username === username && item.active);
+    return user ? mapLocalUser(user) : null;
+  }
+
+  const result = await query(`
+    select id, username, role, display_name, active, must_change_password
+    from app_users
+    where username = $1 and active = true
+    limit 1
+  `, [username]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    displayName: row.display_name,
+    active: row.active,
+    mustChangePassword: row.must_change_password,
+  };
+}
+
 export async function createAppSession({ username, role, expiresAt, userAgent, ipAddress }) {
   requireField(username, 'username');
   requireField(role, 'role');
@@ -814,6 +843,7 @@ export async function changeUserPassword({ username, currentPassword, newPasswor
   requireField(username, 'username');
   requireField(currentPassword, 'currentPassword');
   requireField(newPassword, 'newPassword');
+  validatePasswordChange(currentPassword, newPassword);
 
   if (!env.databaseUrl) {
     const store = getLocalStore();
@@ -867,6 +897,17 @@ export async function changeUserPassword({ username, currentPassword, newPasswor
     active: updated.active,
     mustChangePassword: updated.must_change_password,
   };
+}
+
+function validatePasswordChange(currentPassword, newPassword) {
+  const nextPassword = String(newPassword || '');
+  if (nextPassword.length < 12) {
+    throw new AppError('New password must be at least 12 characters', 400, { minLength: 12 });
+  }
+
+  if (nextPassword === String(currentPassword || '')) {
+    throw new AppError('New password must be different from the current password', 400);
+  }
 }
 
 function validateOrderPatch(currentOrder, patch) {

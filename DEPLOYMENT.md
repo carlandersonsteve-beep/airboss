@@ -54,25 +54,12 @@ GroundCore enables TLS automatically for non-local Postgres connections. By defa
 - `/bootstrap`
 
 ## Immediate pilot credentials
-Seeded users currently are:
-- `steve / groundcore-steve`
-- `tacie / groundcore-tacie`
-- `lindsey / groundcore-office`
-- `lizbeth / groundcore-office`
-- `amanda / groundcore-office`
-- `ramp / groundcore-ramp`
-- `neil / groundcore-ramp`
-- `john / groundcore-ramp`
-- `wade / groundcore-ramp`
-- `todd / groundcore-ramp`
-- `clark / groundcore-ramp`
-- `mark / groundcore-ramp`
-- `kiosk / groundcore-kiosk`
+Create or seed the pilot users, but do **not** reuse repo-default passwords in any hosted environment.
 
-Change these before broader rollout.
+Use unique temporary passwords, distribute them out-of-band, and force first-login rotation for every human account before broader rollout.
 
 ## Recommended next tightening
 1. complete first-run operator credential rotation for every seeded account and retire any shared temporary passwords
 2. stable deploy target + custom subdomain
 3. HTTPS/PWA install testing on iPhone and desktop
-4. run `npm run smoke:auth-cookie` against a shared-mode server (or wire it into CI) to verify login cookie issuance, authenticated `/bootstrap` access, and logout revocation
+4. run `npm run smoke:hosted` against the deployed shared-mode server (or wire it into CI) to verify auth, password-gate, throttle, pilot-path, and concurrency behavior as one pass

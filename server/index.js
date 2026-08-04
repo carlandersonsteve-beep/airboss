@@ -18,6 +18,7 @@ import {
   deleteAlert,
   findReturningCheckInMatch,
   getAppSession,
+  getAppUserByUsername,
   listAlerts,
   listOrderMessages,
   listOrders,
@@ -29,8 +30,10 @@ import {
   upsertThreadRead,
 } from './db/repositories.js';
 import { AppError, requireField } from './lib/errors.js';
+import { securityHeaders } from './lib/security.js';
 
 const router = createRouter();
+const loginThrottleState = new Map();
 
 router.get('/health', async () => {
   const readiness = await getReadiness();
@@ -123,17 +126,61 @@ router.get(/^\/orders\/([^/]+)\/messages$/, async ({ params, req }) => {
 });
 
 router.post('/login', async ({ body, req }) => {
+  const username = String(body?.username || '').trim();
+  const throttle = getLoginThrottleStatus(username, req);
+  if (throttle.blocked) {
+    auditEvent('auth.login.blocked', {
+      req,
+      actor: username || 'unknown',
+      retryAfterSeconds: throttle.retryAfterSeconds,
+    });
+    return {
+      statusCode: 429,
+      headers: { 'Retry-After': String(throttle.retryAfterSeconds) },
+      body: {
+        ok: false,
+        error: 'Too many login attempts',
+        details: { retryAfterSeconds: throttle.retryAfterSeconds },
+      },
+    };
+  }
+
   const user = await authenticateUser({
-    username: body?.username,
+    username,
     password: body?.password,
   });
 
   if (!user) {
+    const failure = recordLoginFailure(username, req);
+    auditEvent('auth.login.failed', {
+      req,
+      actor: username || 'unknown',
+      retryAfterSeconds: failure.blocked ? failure.retryAfterSeconds : 0,
+      blocked: failure.blocked,
+    });
+    if (failure.blocked) {
+      return {
+        statusCode: 429,
+        headers: { 'Retry-After': String(failure.retryAfterSeconds) },
+        body: {
+          ok: false,
+          error: 'Too many login attempts',
+          details: { retryAfterSeconds: failure.retryAfterSeconds },
+        },
+      };
+    }
     throw new AppError('Invalid username or password', 401);
   }
 
+  clearLoginThrottle(username, req);
   const sessionRecord = await issueAppSession(user, req);
   const sessionToken = createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret);
+  auditEvent('auth.login.succeeded', {
+    req,
+    actor: user.username,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+  });
   return {
     ok: true,
     user: {
@@ -144,13 +191,19 @@ router.post('/login', async ({ body, req }) => {
 });
 
 router.post('/change-password', async ({ body, req }) => {
+  const session = await requireSession(req, [], { allowPasswordSetup: true });
   const user = await changeUserPassword({
-    username: body?.username,
+    username: session.username,
     currentPassword: body?.currentPassword,
     newPassword: body?.newPassword,
   });
 
   if (!user) {
+    auditEvent('auth.password_change.failed', {
+      req,
+      actor: session.username,
+      role: session.role,
+    });
     throw new AppError('Current password is incorrect', 401);
   }
 
@@ -161,6 +214,11 @@ router.post('/change-password', async ({ body, req }) => {
 
   const sessionRecord = await issueAppSession(user, req);
   const sessionToken = createSessionToken({ username: user.username, role: user.role, sessionId: sessionRecord.id }, env.sessionSecret);
+  auditEvent('auth.password_change.succeeded', {
+    req,
+    actor: user.username,
+    role: user.role,
+  });
   return {
     ok: true,
     user: {
@@ -175,22 +233,47 @@ router.post('/logout', async ({ req }) => {
   if (session?.sessionId) {
     await revokeAppSession(session.sessionId);
   }
+  if (session?.username) {
+    auditEvent('auth.logout', {
+      req,
+      actor: session.username,
+      role: session.role,
+    });
+  }
   return { ok: true, cookie: clearSessionCookie() };
 });
 
 router.post('/customers', async ({ body, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const item = await createCustomer(body || {});
+  auditEvent('customer.created', {
+    req,
+    actor: session.username,
+    role: session.role,
+    customerId: item?.id,
+    tailNumber: item?.tailNumber,
+  });
   return {
     ok: true,
-    item: await createCustomer(body || {}),
+    item,
   };
 });
 
 router.post('/orders', async ({ body, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const item = await createOrder(body || {});
+  auditEvent('order.created', {
+    req,
+    actor: session.username,
+    role: session.role,
+    orderId: item?.id,
+    customerId: item?.customerId,
+    tailNumber: item?.tailNumber,
+    statusTo: item?.status,
+  });
   return {
     ok: true,
-    item: await createOrder(body || {}),
+    item,
   };
 });
 
@@ -200,13 +283,21 @@ router.post('/checkin/customers', async ({ body, req }) => {
   if (payload.source && payload.source !== 'kiosk') {
     throw new AppError('Invalid check-in customer source', 400);
   }
+  const item = await createCustomer({
+    ...payload,
+    id: payload.id || crypto.randomUUID(),
+    source: 'kiosk',
+  });
+  auditEvent('checkin.customer.created', {
+    req,
+    actor: 'public-kiosk',
+    role: 'KIOSK',
+    customerId: item?.id,
+    tailNumber: item?.tailNumber,
+  });
   return {
     ok: true,
-    item: await createCustomer({
-      ...payload,
-      id: payload.id || crypto.randomUUID(),
-      source: 'kiosk',
-    }),
+    item,
   };
 });
 
@@ -216,14 +307,24 @@ router.post('/checkin/orders', async ({ body, req }) => {
   if (payload.source && payload.source !== 'kiosk' && payload.source !== 'kiosk-checkin') {
     throw new AppError('Invalid check-in order source', 400);
   }
+  const item = await createOrder({
+    ...payload,
+    id: payload.id || crypto.randomUUID(),
+    status: payload.status || 'pending',
+    source: 'kiosk-checkin',
+  });
+  auditEvent('checkin.order.created', {
+    req,
+    actor: 'public-kiosk',
+    role: 'KIOSK',
+    orderId: item?.id,
+    customerId: item?.customerId,
+    tailNumber: item?.tailNumber,
+    statusTo: item?.status,
+  });
   return {
     ok: true,
-    item: await createOrder({
-      ...payload,
-      id: payload.id || crypto.randomUUID(),
-      status: payload.status || 'pending',
-      source: 'kiosk-checkin',
-    }),
+    item,
   };
 });
 
@@ -232,67 +333,121 @@ router.post('/messages', async ({ body, req }) => {
     ? await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP'])
     : getSessionTokenPayload(req);
   const senderRole = resolveAuthorizedRole(session);
+  const item = await createOrderMessage({
+    ...(body || {}),
+    id: body?.id || crypto.randomUUID(),
+    orderId: null,
+    senderRole,
+    sender: senderRole,
+  });
+  auditEvent('message.created', {
+    req,
+    actor: session?.username || senderRole || 'local',
+    role: session?.role || senderRole,
+    orderId: null,
+    tailNumber: item?.tailNumber,
+    messageLength: item?.text?.length || 0,
+  });
   return {
     ok: true,
-    item: await createOrderMessage({
-      ...(body || {}),
-      id: body?.id || crypto.randomUUID(),
-      orderId: null,
-      senderRole,
-      sender: senderRole,
-    }),
+    item,
   };
 });
 
 router.post(/^\/orders\/([^/]+)\/messages$/, async ({ params, body, req }) => {
   const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
   const senderRole = resolveAuthorizedRole(session);
+  const item = await createOrderMessage({
+    ...(body || {}),
+    id: body?.id || crypto.randomUUID(),
+    orderId: params[0],
+    senderRole,
+    sender: senderRole,
+  });
+  auditEvent('message.created', {
+    req,
+    actor: session.username,
+    role: session.role,
+    orderId: params[0],
+    tailNumber: item?.tailNumber,
+    messageLength: item?.text?.length || 0,
+  });
   return {
     ok: true,
-    item: await createOrderMessage({
-      ...(body || {}),
-      id: body?.id || crypto.randomUUID(),
-      orderId: params[0],
-      senderRole,
-      sender: senderRole,
-    }),
+    item,
   };
 });
 
 router.post('/alerts', async ({ body, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const item = await createAlert({
+    ...(body || {}),
+    id: body?.id || crypto.randomUUID(),
+  });
+  auditEvent('alert.created', {
+    req,
+    actor: session.username,
+    role: session.role,
+    alertId: item?.id,
+    orderId: item?.orderId,
+    alertType: item?.type,
+  });
   return {
     ok: true,
-    item: await createAlert({
-      ...(body || {}),
-      id: body?.id || crypto.randomUUID(),
-    }),
+    item,
   };
 });
 
 router.post(/^\/alerts\/([^/]+)\/resolve$/, async ({ params, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE']);
+  const item = await resolveAlert(params[0]);
+  auditEvent('alert.resolved', {
+    req,
+    actor: session.username,
+    role: session.role,
+    alertId: params[0],
+    orderId: item?.orderId,
+    alertType: item?.type,
+  });
   return {
     ok: true,
-    item: await resolveAlert(params[0]),
+    item,
   };
 });
 
 router.delete(/^\/alerts\/([^/]+)$/, async ({ params, req }) => {
-  await requireSession(req, ['ADMIN', 'OFFICE']);
+  const session = await requireSession(req, ['ADMIN', 'OFFICE']);
+  const removed = await deleteAlert(params[0]);
+  auditEvent('alert.deleted', {
+    req,
+    actor: session.username,
+    role: session.role,
+    alertId: params[0],
+    removed,
+  });
   return {
     ok: true,
-    removed: await deleteAlert(params[0]),
+    removed,
   };
 });
 
 router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
-  if (env.databaseUrl) {
-    await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
-  }
+  const session = env.databaseUrl
+    ? await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP'])
+    : getSessionTokenPayload(req);
+  const item = await updateOrder(params[0], body || {});
+  auditEvent('order.updated', {
+    req,
+    actor: session?.username || session?.role || 'local',
+    role: session?.role || null,
+    orderId: params[0],
+    tailNumber: item?.tailNumber,
+    statusTo: item?.status,
+    patchKeys: Object.keys(body || {}),
+  });
   return {
     ok: true,
-    item: await updateOrder(params[0], body || {}),
+    item,
   };
 });
 
@@ -306,6 +461,13 @@ router.post(/^\/orders\/([^/]+)\/read$/, async ({ params, body, req }) => {
     orderId: params[0],
     role,
     lastReadAt: body?.lastReadAt ? new Date(body.lastReadAt).toISOString() : null,
+  });
+  auditEvent('thread.read.updated', {
+    req,
+    actor: session?.username || role,
+    role,
+    orderId: params[0],
+    lastReadAt: item?.lastReadAt || null,
   });
 
   return {
@@ -332,7 +494,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, result.statusCode || 200, result.body, result.headers || {}, req);
   } catch (error) {
     if (error instanceof AppError) {
-      console.error('GroundCore app error:', req.method, req.url, error.message, error.details || null);
+      logAppError(req, error);
       sendJson(res, error.statusCode || 400, {
         ok: false,
         error: error.message,
@@ -362,6 +524,119 @@ ensureRuntimeReady()
     process.exit(1);
   });
 
+function isExpectedAuthNoise(req, error) {
+  if (!(error instanceof AppError)) return false;
+
+  const statusCode = error.statusCode || 400;
+  const path = String(req?.url || '').split('?')[0];
+  const message = error.message || '';
+
+  if (
+    statusCode === 401
+    && req?.method === 'GET'
+    && path === '/bootstrap'
+    && ['Authentication required', 'Session invalid', 'Session expired or revoked'].includes(message)
+  ) {
+    return true;
+  }
+
+  if (statusCode === 401 && req?.method === 'POST' && path === '/login' && message === 'Invalid username or password') {
+    return true;
+  }
+
+  if (statusCode === 403 && message === 'Password change required') {
+    return true;
+  }
+
+  return false;
+}
+
+function logAppError(req, error) {
+  const path = String(req?.url || '').split('?')[0];
+  const logArgs = [req.method, path, error.message, error.details || null];
+  if (isExpectedAuthNoise(req, error)) {
+    console.warn('GroundCore auth event:', ...logArgs);
+    return;
+  }
+  console.error('GroundCore app error:', ...logArgs);
+}
+
+function auditEvent(event, details = {}) {
+  const { req, ...rest } = details || {};
+  const payload = {
+    ts: new Date().toISOString(),
+    event,
+    method: req?.method || null,
+    path: req ? String(req.url || '').split('?')[0] : null,
+    ipAddress: req ? getRequestIp(req) : null,
+    ...rest,
+  };
+  console.log('GroundCore audit:', JSON.stringify(payload));
+}
+
+function getLoginThrottleStatus(username, req) {
+  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) {
+    return { blocked: false, retryAfterSeconds: 0 };
+  }
+
+  const state = getThrottleEntry(getLoginThrottleKey(username, req));
+  if (!state?.blockedUntil || state.blockedUntil <= Date.now()) {
+    return { blocked: false, retryAfterSeconds: 0 };
+  }
+
+  return {
+    blocked: true,
+    retryAfterSeconds: Math.max(1, Math.ceil((state.blockedUntil - Date.now()) / 1000)),
+  };
+}
+
+function recordLoginFailure(username, req) {
+  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) {
+    return { blocked: false, retryAfterSeconds: 0 };
+  }
+
+  const now = Date.now();
+  const key = getLoginThrottleKey(username, req);
+  const state = getThrottleEntry(key) || { attempts: [], blockedUntil: 0 };
+  state.attempts = state.attempts.filter((ts) => now - ts <= env.loginRateLimitWindowMs);
+  state.attempts.push(now);
+
+  if (state.attempts.length >= env.loginRateLimitMaxAttempts) {
+    state.blockedUntil = now + env.loginRateLimitBlockMs;
+  }
+
+  loginThrottleState.set(key, state);
+  return {
+    blocked: state.blockedUntil > now,
+    retryAfterSeconds: state.blockedUntil > now ? Math.max(1, Math.ceil((state.blockedUntil - now) / 1000)) : 0,
+  };
+}
+
+function clearLoginThrottle(username, req) {
+  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) return;
+  loginThrottleState.delete(getLoginThrottleKey(username, req));
+}
+
+function getThrottleEntry(key) {
+  const now = Date.now();
+  const state = loginThrottleState.get(key);
+  if (!state) return null;
+  if (state.blockedUntil && state.blockedUntil <= now) {
+    loginThrottleState.delete(key);
+    return null;
+  }
+  state.attempts = (state.attempts || []).filter((ts) => now - ts <= env.loginRateLimitWindowMs);
+  if (state.attempts.length === 0 && !state.blockedUntil) {
+    loginThrottleState.delete(key);
+    return null;
+  }
+  return state;
+}
+
+function getLoginThrottleKey(username, req) {
+  return `${String(username || '').trim().toLowerCase()}::${getRequestIp(req)}`;
+}
+
 function getSessionTokenPayload(req) {
   const authHeader = req.headers.authorization || '';
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
@@ -381,7 +656,8 @@ async function issueAppSession(user, req) {
   });
 }
 
-async function requireSession(req, allowedRoles = []) {
+async function requireSession(req, allowedRoles = [], options = {}) {
+  const { allowPasswordSetup = false } = options;
   const session = getSessionTokenPayload(req);
 
   if (!session) {
@@ -399,11 +675,23 @@ async function requireSession(req, allowedRoles = []) {
     await touchAppSession(storedSession.id);
   }
 
+  const user = await getAppUserByUsername(session.username);
+  if (!user || !user.active) {
+    throw new AppError('Session invalid', 401);
+  }
+
+  if (!allowPasswordSetup && user.mustChangePassword) {
+    throw new AppError('Password change required', 403, { mustChangePassword: true });
+  }
+
   if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
     throw new AppError('Forbidden', 403, { requiredRoles: allowedRoles, actualRole: session.role });
   }
 
-  return session;
+  return {
+    ...session,
+    mustChangePassword: user.mustChangePassword,
+  };
 }
 
 function requireCheckInSession(req) {
@@ -451,7 +739,7 @@ function validateCheckInOrigin(req) {
 }
 
 function getRequestIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = env.trustProxy ? req.headers['x-forwarded-for'] : '';
   if (typeof forwarded === 'string' && forwarded.trim()) {
     return forwarded.split(',')[0].trim();
   }
@@ -564,13 +852,7 @@ function sendJson(res, statusCode, payload, extraHeaders = {}, req = null) {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
     'Cache-Control': 'no-store',
-    'Cross-Origin-Opener-Policy': 'same-origin',
-    'Cross-Origin-Resource-Policy': 'same-origin',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    ...securityHeaders(),
     'Vary': 'Origin',
     ...extraHeaders,
   };

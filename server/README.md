@@ -77,22 +77,11 @@ npm run db:schema
 After applying the schema, run the SQL in:
 - `server/db/seed_users.sql`
 
-Default logins created by that seed:
-- `steve` / `groundcore-steve`
-- `tacie` / `groundcore-tacie`
-- `lindsey` / `groundcore-office`
-- `lizbeth` / `groundcore-office`
-- `amanda` / `groundcore-office`
-- `ramp` / `groundcore-ramp`
-- `neil` / `groundcore-ramp`
-- `john` / `groundcore-ramp`
-- `wade` / `groundcore-ramp`
-- `todd` / `groundcore-ramp`
-- `clark` / `groundcore-ramp`
-- `mark` / `groundcore-ramp`
-- `kiosk` / `groundcore-kiosk`
+For local development, the seed creates the expected Mustang pilot users.
 
-These are intentionally simple pilot credentials and should be changed before broader rollout.
+For hosted/production seeding, set explicit per-user temporary passwords via environment variables like `SEED_PASSWORD_STEVE`, `SEED_PASSWORD_TACIE`, etc. The script now refuses repo-default passwords in `NODE_ENV=production` unless you explicitly override with `ALLOW_INSECURE_DEFAULT_SEED_PASSWORDS=1`.
+
+Do not use repo-default passwords in any hosted environment. Require first-login rotation for every user.
 
 ## Recommended next step
 Use the backend + Supabase path as the system of record, then continue tightening:

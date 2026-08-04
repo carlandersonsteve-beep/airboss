@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { securityHeaders } from './security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +38,7 @@ export function tryServeStatic(requestUrl, res) {
   res.writeHead(200, {
     'Content-Type': contentType,
     'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
+    ...securityHeaders(),
   });
   createReadStream(filePath).pipe(res);
   return true;

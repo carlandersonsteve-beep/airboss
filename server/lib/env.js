@@ -3,6 +3,7 @@ const explicitHost = process.env.HOST || '';
 const allowedOriginsRaw = process.env.ALLOWED_ORIGINS || '';
 const databaseSslModeRaw = process.env.DATABASE_SSL_MODE || '';
 const databaseSslCa = process.env.DATABASE_SSL_CA || '';
+const trustProxyRaw = process.env.TRUST_PROXY || '';
 
 const host = explicitHost || '127.0.0.1';
 const secureCookieOverride = process.env.SECURE_COOKIES || '';
@@ -26,6 +27,10 @@ export const env = {
   databaseSslMode: databaseSslModeRaw.trim().toLowerCase() || 'verify-full',
   databaseSslCa: databaseSslCa,
   isSecureCookieEnvironment: inferSecureCookies(),
+  trustProxy: ['1', 'true', 'yes', 'on'].includes(trustProxyRaw.trim().toLowerCase()),
+  loginRateLimitWindowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000),
+  loginRateLimitMaxAttempts: Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS || 5),
+  loginRateLimitBlockMs: Number(process.env.LOGIN_RATE_LIMIT_BLOCK_MS || 15 * 60 * 1000),
 };
 
 if (env.databaseUrl && env.sessionSecret === defaultSessionSecret) {

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.js",
     "dev:server": "node --env-file-if-exists=.env server/index.js",
+    "build:frontend": "node scripts/build-frontend.mjs",
     "start": "node --env-file-if-exists=.env server/index.js",
     "local:start": "bash scripts/local-server.sh start",
     "local:stop": "bash scripts/local-server.sh stop",
@@ -13,12 +14,25 @@
     "local:status": "bash scripts/local-server.sh status",
     "db:schema": "node --env-file-if-exists=.env server/scripts/print-schema.js",
     "db:seed-users": "node --env-file-if-exists=.env server/scripts/seed-users.js",
-    "smoke:auth-cookie": "node scripts/auth-cookie-smoke.mjs"
+    "smoke:auth-cookie": "node scripts/auth-cookie-smoke.mjs",
+    "smoke:password-gate": "node scripts/password-gate-smoke.mjs",
+    "smoke:login-throttle": "node scripts/login-throttle-smoke.mjs",
+    "smoke:pilot-path": "node scripts/pilot-path-smoke.mjs",
+    "smoke:concurrency": "node scripts/concurrency-read-smoke.mjs",
+    "smoke:ui-pilot-path": "node scripts/ui-pilot-path.mjs",
+    "smoke:hosted": "bash scripts/hosted-smoke.sh",
+    "smoke:local": "bash scripts/local-smoke.sh"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17"
   }
 }

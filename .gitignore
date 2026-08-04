@@ -5,6 +5,8 @@ dist/
 build/
 server/data/
 tmp/
+.npm-cache/
+.tmp/
 *.tmp
 *.swp
 .env

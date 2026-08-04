@@ -2,12 +2,31 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
-const baseUrl = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:8795';
+const baseUrl = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:8792';
 const origin = process.env.SMOKE_ORIGIN || baseUrl;
-const rampUsername = process.env.SMOKE_RAMP_USERNAME || 'ramp';
-const rampPassword = process.env.SMOKE_RAMP_PASSWORD || 'groundcore-ramp';
-const officeUsername = process.env.SMOKE_OFFICE_USERNAME || 'tacie';
-const officePassword = process.env.SMOKE_OFFICE_PASSWORD || 'groundcore-tacie';
+
+const rampCandidates = process.env.SMOKE_RAMP_USERNAME
+  ? [{ username: process.env.SMOKE_RAMP_USERNAME, password: process.env.SMOKE_RAMP_PASSWORD || 'groundcore-ramp' }]
+  : [
+      { username: 'smoke-ramp-pilot', password: 'groundcore-smoke-ramp-pilot' },
+      { username: 'ramp', password: 'groundcore-ramp' },
+      { username: 'neil', password: 'groundcore-ramp' },
+      { username: 'john', password: 'groundcore-ramp' },
+      { username: 'wade', password: 'groundcore-ramp' },
+      { username: 'todd', password: 'groundcore-ramp' },
+      { username: 'clark', password: 'groundcore-ramp' },
+      { username: 'mark', password: 'groundcore-ramp' },
+    ];
+
+const officeCandidates = process.env.SMOKE_OFFICE_USERNAME
+  ? [{ username: process.env.SMOKE_OFFICE_USERNAME, password: process.env.SMOKE_OFFICE_PASSWORD || 'groundcore-office' }]
+  : [
+      { username: 'smoke-office-pilot', password: 'groundcore-smoke-office-pilot' },
+      { username: 'tacie', password: 'groundcore-tacie' },
+      { username: 'lindsey', password: 'groundcore-office' },
+      { username: 'lizbeth', password: 'groundcore-office' },
+      { username: 'amanda', password: 'groundcore-office' },
+    ];
 
 function makeJar() {
   return new Map();
@@ -75,7 +94,37 @@ async function login(username, password) {
     body: JSON.stringify({ username, password }),
   });
   assert.ok(jar.get('groundcore_session'), `missing groundcore_session cookie for ${username}`);
-  return { jar, user: loginResult.json.user };
+
+  let activePassword = password;
+  if (loginResult.json?.user?.mustChangePassword) {
+    activePassword = `GroundCore!${crypto.randomUUID().slice(0, 12)}`;
+    const changed = await expectOk('/change-password', {
+      jar,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: password, newPassword: activePassword }),
+    });
+    assert.equal(changed.json?.user?.mustChangePassword, false, `password gate did not clear for ${username}`);
+  }
+
+  return { jar, user: loginResult.json.user, username, password: activePassword };
+}
+
+async function loginWithFallback(label, candidates) {
+  const failures = [];
+  for (const candidate of candidates) {
+    try {
+      return await login(candidate.username, candidate.password);
+    } catch (error) {
+      failures.push({
+        username: candidate.username,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const attempted = failures.map((item) => item.username).join(', ');
+  throw new Error(`${label} login failed for all candidates: ${attempted}`);
 }
 
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
@@ -152,8 +201,9 @@ const postLookup = await expectOk(`/checkin/lookup?tail=${encodeURIComponent(tai
 assert.equal(postLookup.json.matched, true, `expected returning-customer match after create: ${postLookup.text}`);
 result.checks.returningCustomerLookupWorks = true;
 
-const ramp = await login(rampUsername, rampPassword);
+const ramp = await loginWithFallback('ramp', rampCandidates);
 result.checks.rampLogin = true;
+result.rampUser = ramp.username;
 
 const rampBootstrap1 = await expectOk('/bootstrap', { jar: ramp.jar });
 const rampOrder1 = rampBootstrap1.json.orders.find((order) => order.id === orderId);
@@ -208,8 +258,9 @@ await expectOk(`/orders/${orderId}`, {
 });
 result.checks.rampMovedToReadyForFrontDesk = true;
 
-const office = await login(officeUsername, officePassword);
+const office = await loginWithFallback('office', officeCandidates);
 result.checks.officeLogin = true;
+result.officeUser = office.username;
 
 const officeBootstrap = await expectOk('/bootstrap', { jar: office.jar });
 const officeOrder = officeBootstrap.json.orders.find((order) => order.id === orderId);

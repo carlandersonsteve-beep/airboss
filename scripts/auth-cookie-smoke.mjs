@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
 const baseUrl = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:8792';
 const origin = process.env.SMOKE_ORIGIN || baseUrl;
-const username = process.env.SMOKE_USERNAME || 'steve';
-const password = process.env.SMOKE_PASSWORD || 'groundcore-steve';
+const username = process.env.SMOKE_USERNAME || 'smoke-admin';
+const password = process.env.SMOKE_PASSWORD || 'groundcore-smoke-admin';
+const rotatedPassword = process.env.SMOKE_NEW_PASSWORD || `GroundCore!${crypto.randomUUID().slice(0, 12)}`;
 
 function extractCookie(setCookieHeader, name) {
   const values = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -60,8 +62,31 @@ const sessionCookieValue = extractCookie(loginSetCookie, 'groundcore_session');
 assert.ok(sessionCookieValue, 'unable to parse groundcore_session cookie');
 const cookieHeader = `groundcore_session=${sessionCookieValue}`;
 
+let activeCookieHeader = cookieHeader;
+let passwordRotated = false;
+
+if (login.json?.user?.mustChangePassword) {
+  const changed = await request('/change-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: activeCookieHeader,
+    },
+    body: JSON.stringify({
+      currentPassword: password,
+      newPassword: rotatedPassword,
+    }),
+  });
+  assert.equal(changed.response.status, 200, `change-password failed: ${changed.response.status} ${changed.text}`);
+  assert.equal(changed.json?.ok, true, `change-password payload not ok: ${changed.text}`);
+  const changedCookieValue = extractCookie(changed.response.headers.get('set-cookie'), 'groundcore_session');
+  assert.ok(changedCookieValue, 'missing Set-Cookie on password change');
+  activeCookieHeader = `groundcore_session=${changedCookieValue}`;
+  passwordRotated = true;
+}
+
 const bootstrap = await request('/bootstrap', {
-  headers: { Cookie: cookieHeader },
+  headers: { Cookie: activeCookieHeader },
 });
 assert.equal(bootstrap.response.status, 200, `bootstrap failed: ${bootstrap.response.status} ${bootstrap.text}`);
 assert.equal(bootstrap.json?.ok, true, `bootstrap payload not ok: ${bootstrap.text}`);
@@ -73,7 +98,7 @@ const logout = await request('/logout', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    Cookie: cookieHeader,
+    Cookie: activeCookieHeader,
   },
   body: '{}',
 });
@@ -85,7 +110,7 @@ assert.match(logoutSetCookie, /groundcore_session=;/, 'logout did not clear sess
 assert.match(logoutSetCookie, /Max-Age=0/i, 'logout cookie missing Max-Age=0');
 
 const revokedBootstrap = await request('/bootstrap', {
-  headers: { Cookie: cookieHeader },
+  headers: { Cookie: activeCookieHeader },
 });
 assert.equal(revokedBootstrap.response.status, 401, `revoked bootstrap expected 401, got ${revokedBootstrap.response.status} ${revokedBootstrap.text}`);
 assert.equal(revokedBootstrap.json?.ok, false, 'revoked bootstrap should fail');
@@ -98,6 +123,7 @@ console.log(JSON.stringify({
   username,
   checks: {
     loginCookieIssued: true,
+    passwordRotatedIfRequired: passwordRotated,
     bootstrapAuthenticated: true,
     logoutClearedCookie: true,
     revokedSessionRejected: true,
