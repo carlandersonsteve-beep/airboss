@@ -129,6 +129,15 @@ export async function findReturningCheckInMatch(tailNumber) {
   };
 }
 
+export async function getCustomerById(customerId) {
+  if (!customerId) return null;
+  if (!env.databaseUrl) {
+    return (getLocalStore().customers || []).find((customer) => customer.id === customerId) || null;
+  }
+  const result = await query('select * from customers where id = $1 limit 1', [customerId]);
+  return result.rows[0] ? mapCustomerRow(result.rows[0]) : null;
+}
+
 export async function createCustomer(payload) {
   requireField(payload.id, 'id');
   requireField(payload.tailNumber, 'tailNumber');

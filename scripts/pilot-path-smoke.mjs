@@ -206,10 +206,12 @@ assert.equal(orderCreate.json.item.status, 'pending');
 result.checks.kioskOrderCreated = true;
 
 const postLookup = await expectOk(`/checkin/lookup?tail=${encodeURIComponent(tailNumber)}`, { jar: kioskJar });
-assert.equal(postLookup.json.matched, false, `public lookup must not disclose whether a tail has customer data: ${postLookup.text}`);
-assert.equal(postLookup.json.match, null, `public lookup must not return customer data: ${postLookup.text}`);
-assert.equal(postLookup.json.privacyMode, 'contact-reentry-required');
-result.checks.publicTailLookupProtectsContactData = true;
+assert.equal(postLookup.json.matched, true);
+assert.equal(postLookup.json.privacyMode, 'verified-returning-contact');
+assert.equal(postLookup.json.match.customer.maskedPhone, '•••-•••-0101');
+assert.equal(JSON.stringify(postLookup.json).includes('605-555-0101'), false);
+assert.equal(JSON.stringify(postLookup.json).includes('smoke-pilot@example.com'), false);
+result.checks.publicTailLookupMasksContactData = true;
 
 const ramp = await loginWithFallback('ramp', rampCandidates);
 result.checks.rampLogin = true;

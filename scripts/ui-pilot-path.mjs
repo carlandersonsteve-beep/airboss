@@ -97,11 +97,25 @@ async function verifyReturningLookupPrivacy(page, tail) {
   await page.getByRole('button', { name: 'Start Check-In' }).click();
   await page.getByPlaceholder('N12345').first().fill(tail);
   await page.getByRole('button', { name: /Find Aircraft/ }).click();
+  await page.getByText('Returning Aircraft Found').waitFor({ timeout: 10000 });
+  await page.getByText('•••-•••-0101').waitFor({ timeout: 10000 });
+  const pageText = await page.locator('body').innerText();
+  assert.equal(pageText.includes(pilotEmail), false);
+  assert.equal(pageText.includes('605-555-0101'), false);
+  await page.getByPlaceholder('1234').fill('0101');
+  await page.getByPlaceholder('1234').press('Tab');
+  await page.waitForTimeout(150);
+  await page.getByRole('button', { name: /Everything is correct/ }).click();
+  await page.getByRole('heading', { name: /Hangar Overnight/ }).waitFor({ timeout: 10000 });
+  checks.kioskReturningLookupProtectsContactUi = true;
+  checks.kioskReturningContactVerifiedUi = true;
+  await page.getByRole('button', { name: /Back/ }).click();
+  await page.getByRole('button', { name: 'Update contact information' }).click();
   await page.getByText('Aircraft & Contact Information').waitFor({ timeout: 10000 });
   await assertInputEmpty(page, 'John Smith');
   await assertInputEmpty(page, 'john@example.com');
   await assertInputEmpty(page, '605-555-1234');
-  checks.kioskReturningLookupProtectsContactUi = true;
+  checks.kioskReturningUpdateRequiresContactReentryUi = true;
 }
 
 async function assertInputEmpty(page, placeholder) {
@@ -132,6 +146,7 @@ const officeContext = await browser.newContext();
 const kioskPage = await kioskContext.newPage();
 const rampPage = await rampContext.newPage();
 const officePage = await officeContext.newPage();
+kioskPage.on('pageerror', (error) => console.error('Kiosk page error:', error.message));
 
 let resetWorked = false;
 try {

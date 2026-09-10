@@ -40,7 +40,7 @@ _Updated: 2026-09-10_
 - [x] Concurrent Ramp and Office sessions
 - [x] Cookie sessions, logout/revocation, and password gate
 - [x] Login throttling
-- [x] Public lookup does not disclose existing customer data
+- [x] Returning lookup exposes only masked hints and requires phone-last-four verification for server-side reuse
 - [x] Kiosk payload whitelist and server-generated IDs
 - [x] Role-specific order mutation enforcement
 - [x] Server-side actual-fuel, variance-note, and meter validation

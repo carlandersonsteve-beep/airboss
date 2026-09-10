@@ -81,6 +81,13 @@
     async lookupCheckInByTail(tail) {
       await this.ensureCheckInSession();
       return this.request(`/checkin/lookup?tail=${encodeURIComponent(tail)}`);
+    },
+    async verifyReturningContact(challengeToken, phoneLastFour) {
+      await this.ensureCheckInSession();
+      return this.request('/checkin/verify-returning', {
+        method: 'POST',
+        body: JSON.stringify({ challengeToken, phoneLastFour })
+      });
     }
   };
   const appendStoredRecord = (key, record) => {
@@ -151,6 +158,8 @@
     const [submitError, setSubmitError] = useState("");
     const [lookupState, setLookupState] = useState(createEmptyLookupState());
     const [checkInMode, setCheckInMode] = useState("new");
+    const [phoneLastFour, setPhoneLastFour] = useState("");
+    const [returningToken, setReturningToken] = useState("");
     const [formData, setFormData] = useState({
       tailNumber: "",
       aircraftType: "",
@@ -170,10 +179,7 @@
       departureTime: ""
     });
     const matchedCustomer = lookupState.match?.customer || null;
-    const returningSummary = useMemo(() => {
-      if (!matchedCustomer) return null;
-      return redactLookupSummary(matchedCustomer);
-    }, [matchedCustomer]);
+    const returningSummary = useMemo(() => matchedCustomer ? [matchedCustomer.maskedEmail, matchedCustomer.maskedPhone].filter(Boolean).join(" • ") : null, [matchedCustomer]);
     useEffect(() => {
       api.ensureCheckInSession().catch((error) => {
         console.warn("Check-in session bootstrap failed", error.message);
@@ -212,6 +218,8 @@
     const resetLookup = () => {
       setLookupState(createEmptyLookupState());
       setCheckInMode("new");
+      setPhoneLastFour("");
+      setReturningToken("");
     };
     const applyMatchedCustomerToForm = (customer) => {
       if (!customer) return;
@@ -261,15 +269,25 @@
         setLookupState({ searched: true, loading: false, error: error.message || "Unable to look up that tail number right now.", matched: false, match: null, normalizedTail });
       }
     };
-    const handleReturningChoice = (mode) => {
+    const handleReturningChoice = async (mode) => {
       setCheckInMode(mode);
-      if (matchedCustomer) {
-        applyMatchedCustomerToForm(matchedCustomer);
-      }
       if (mode === "returning-confirmed") {
-        setStep(4);
+        if (!/^[0-9]{4}$/.test(phoneLastFour)) {
+          setSubmitError("Enter the last four digits of the saved phone number.");
+          return;
+        }
+        try {
+          const response = await api.verifyReturningContact(lookupState.match?.challengeToken, phoneLastFour);
+          setReturningToken(response.returningToken || "");
+          applyMatchedCustomerToForm(matchedCustomer);
+          setSubmitError("");
+          setStep(4);
+        } catch (error) {
+          setSubmitError("Those digits did not match. Try again or update the contact information.");
+        }
         return;
       }
+      applyMatchedCustomerToForm(matchedCustomer);
       setStep(3);
     };
     const goToServicesStep = () => {
@@ -300,9 +318,10 @@
       return "";
     };
     const validateBeforeSubmit = () => {
-      if (!formData.tailNumber || !formData.aircraftType || !formData.pilotName) {
+      if (!formData.tailNumber || !formData.aircraftType || (checkInMode !== "returning-confirmed" && !formData.pilotName)) {
         return "Aircraft and pilot information is incomplete.";
       }
+      if (checkInMode === "returning-confirmed" && returningToken) return validateServiceStep();
       if (!isValidEmail(formData.email)) {
         return "Enter a valid email address.";
       }
@@ -335,7 +354,7 @@
         }
         setSubmitError("");
         setBackendStatus("saving");
-        const localCustomer = appendStoredRecord("fbo_customers", buildKioskCustomerPayload(formData));
+        const localCustomer = buildKioskCustomerPayload(formData);
         const localOrder = appendStoredRecord("fbo_orders", buildKioskOrderPayload(formData, localCustomer));
         if (formData.marketingConsent && formData.email) {
           appendStoredRecord("marketing_list", buildMarketingLeadPayload(formData));
@@ -344,11 +363,15 @@
         let savedOrder = localOrder;
         let finalBackendStatus = "connected";
         try {
-          const customerResponse = await api.createCustomer(localCustomer);
-          savedCustomer = customerResponse.item || localCustomer;
+          if (checkInMode !== "returning-confirmed") {
+            appendStoredRecord("fbo_customers", localCustomer);
+            const customerResponse = await api.createCustomer(localCustomer);
+            savedCustomer = customerResponse.item || localCustomer;
+          }
           const backendOrderPayload = {
             ...localOrder,
-            customerId: savedCustomer.id
+            customerId: savedCustomer.id,
+            returningToken: checkInMode === "returning-confirmed" ? returningToken : undefined
           };
           const orderResponse = await api.createOrder(backendOrderPayload);
           savedOrder = orderResponse.item || backendOrderPayload;
@@ -429,6 +452,20 @@
       } }, "Skip lookup and enter everything manually"));
     }
     if (step === 2 && matchedCustomer) {
+      return /* @__PURE__ */ React.createElement("div", { className: "glass-card", style: { borderRadius: "2rem", padding: "3rem", maxWidth: "640px", width: "100%" } },
+        /* @__PURE__ */ React.createElement("h2", { style: { fontSize: "2rem", fontWeight: "bold", marginBottom: "1rem", color: "#1f2937" } }, "✅ Returning Aircraft Found"),
+        /* @__PURE__ */ React.createElement("p", { style: { color: "#6b7280", marginBottom: "1rem", lineHeight: 1.5 } }, "We found a previous check-in for ", matchedCustomer.tailNumber, ". Confirm the saved contact before reusing it."),
+        /* @__PURE__ */ React.createElement("div", { style: { background: "#f9fafb", padding: "1.5rem", borderRadius: "1rem", marginBottom: "1rem" } },
+          /* @__PURE__ */ React.createElement("p", { style: { fontWeight: 700 } }, matchedCustomer.tailNumber, " • ", matchedCustomer.aircraftType || "Aircraft type on file"),
+          /* @__PURE__ */ React.createElement("p", { style: { color: "#374151", marginTop: "0.5rem" } }, returningSummary || "Saved contact information is available")),
+        submitError && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "1rem", padding: "0.85rem 1rem", borderRadius: "0.75rem", background: "#fef3c7", color: "#92400e", fontWeight: 600 } }, submitError),
+        /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, color: "#374151" } }, "Last 4 digits of saved phone number"),
+        /* @__PURE__ */ React.createElement("input", { className: "input-field", inputMode: "numeric", maxLength: 4, placeholder: "1234", value: phoneLastFour, onChange: (event) => setPhoneLastFour(event.target.value.replace(/\D/g, '').slice(0, 4)), style: { marginBottom: "1rem" } }),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gap: "0.75rem" } },
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary", onClick: () => handleReturningChoice("returning-confirmed") }, "Everything is correct — continue"),
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => handleReturningChoice("update") }, "Update contact information"),
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => handleReturningChoice("different-operator") }, "Different operator / new owner"),
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => setStep(1) }, "← Back")));
       return /* @__PURE__ */ React.createElement("div", { className: "glass-card", style: { borderRadius: "2rem", padding: "3rem", maxWidth: "640px", width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "progress-bar" }, /* @__PURE__ */ React.createElement("div", { className: "progress-step active" }), /* @__PURE__ */ React.createElement("div", { className: "progress-step active" }), /* @__PURE__ */ React.createElement("div", { className: "progress-step" }), /* @__PURE__ */ React.createElement("div", { className: "progress-step" })), /* @__PURE__ */ React.createElement("h2", { style: { fontSize: "2rem", fontWeight: "bold", marginBottom: "1rem", color: "#1f2937" } }, "\u2705 Returning Aircraft Found"), /* @__PURE__ */ React.createElement("p", { style: { color: "#6b7280", marginBottom: "1.5rem", lineHeight: 1.5 } }, "We found a previous check-in for ", matchedCustomer.tailNumber, ". Is this still correct?"), /* @__PURE__ */ React.createElement("div", { style: { background: "#f9fafb", padding: "1.5rem", borderRadius: "1rem", marginBottom: "1rem" } }, /* @__PURE__ */ React.createElement("h3", { style: { fontWeight: "bold", marginBottom: "0.5rem" } }, "Aircraft"), /* @__PURE__ */ React.createElement("p", { style: { fontWeight: 700, marginBottom: "0.35rem" } }, matchedCustomer.tailNumber), /* @__PURE__ */ React.createElement("p", { style: { color: "#374151" } }, matchedCustomer.aircraftType || "Aircraft type not on file")), /* @__PURE__ */ React.createElement("div", { style: { background: "#f9fafb", padding: "1.5rem", borderRadius: "1rem", marginBottom: "2rem" } }, /* @__PURE__ */ React.createElement("h3", { style: { fontWeight: "bold", marginBottom: "0.5rem" } }, "Operator / Contact"), /* @__PURE__ */ React.createElement("p", { style: { fontWeight: 700, marginBottom: "0.35rem" } }, matchedCustomer.pilotName || matchedCustomer.ownerName || "Contact on file"), /* @__PURE__ */ React.createElement("p", { style: { color: "#374151", lineHeight: 1.5 } }, returningSummary || "No additional contact details on file")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gap: "0.75rem" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary", onClick: () => handleReturningChoice("returning-confirmed") }, "Yes, that's correct"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => handleReturningChoice("update") }, "Update information"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => handleReturningChoice("different-operator") }, "Different operator / new owner")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "1rem", display: "flex", justifyContent: "space-between", gap: "1rem" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => setStep(1) }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-secondary", onClick: () => {
         resetLookup();
         setCheckInMode("manual");

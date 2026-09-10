@@ -39,12 +39,11 @@ Passing locally on 2026-09-10:
 
 ## Deliberate privacy behavior
 
-Entering a known tail number at the public kiosk does **not** reveal whether Mustang has a matching customer record and does not prefill pilot name, email, phone, or company. Customers re-enter contact details for each check-in. The backend still merges the submission into the canonical tail record without exposing the prior record to the browser.
+Entering a known tail number can show only masked email/phone hints and the aircraft type. The kiosk never receives the full saved contact record. A returning pilot may enter the last four digits of the saved phone number to obtain a short-lived, signed verification token and reuse the contact record server-side. Choosing to update the information shows blank contact fields so prior personal data is not exposed in the browser.
 
 ## Remaining gates before two-person walkthrough
 
-1. Commit and push the current security/readiness work.
-2. Deploy the current branch to a staging Render/Supabase environment.
+1. Deploy the current branch to a staging Render/Supabase environment.
 3. Configure unique hosted secrets, exact allowed origins, TLS, and explicit pilot credentials.
 4. Run the hosted API smoke suite against staging.
 5. Run the Playwright UI workflow against staging.

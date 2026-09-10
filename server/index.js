@@ -18,6 +18,8 @@ import {
   deleteAlert,
   getAppSession,
   getAppUserByUsername,
+  getCustomerById,
+  findReturningCheckInMatch,
   listAlerts,
   listOrderMessages,
   listOrders,
@@ -98,13 +100,60 @@ router.get('/checkin/lookup', async ({ requestUrl, req }) => {
   if (!/^[A-Z0-9]{2,10}$/.test(normalizedTail)) {
     throw new AppError('Invalid tail number', 400);
   }
+  const match = await findReturningCheckInMatch(normalizedTail);
+  if (!match?.customer) {
+    return {
+      ok: true,
+      tail,
+      normalizedTail,
+      matched: false,
+      match: null,
+      privacyMode: 'verified-returning-contact',
+    };
+  }
+  const customer = match.customer;
   return {
     ok: true,
     tail,
     normalizedTail,
-    matched: false,
-    match: null,
-    privacyMode: 'contact-reentry-required',
+    matched: true,
+    match: {
+      customer: {
+        tailNumber: normalizedTail,
+        aircraftType: customer.aircraftType || '',
+        maskedEmail: maskEmail(customer.email),
+        maskedPhone: maskPhone(customer.phone),
+      },
+      challengeToken: createCheckInToken({
+        channel: 'returning-challenge',
+        customerId: customer.id,
+        tailNumber: normalizedTail,
+      }, env.checkinSecret),
+    },
+    privacyMode: 'verified-returning-contact',
+  };
+});
+
+router.post('/checkin/verify-returning', async ({ body, req }) => {
+  enforceCheckInRateLimit(req, 'lookup');
+  requireCheckInSession(req);
+  const challenge = verifyCheckInToken(body?.challengeToken, env.checkinSecret);
+  const lastFour = String(body?.phoneLastFour || '').replace(/\D/g, '');
+  if (challenge?.channel !== 'returning-challenge' || !challenge.customerId || !/^[0-9]{4}$/.test(lastFour)) {
+    throw new AppError('Returning contact verification failed', 403);
+  }
+  const customer = await getCustomerById(challenge.customerId);
+  const savedDigits = String(customer?.phone || '').replace(/\D/g, '');
+  if (!customer || savedDigits.slice(-4) !== lastFour || normalizeTailNumber(customer.tailNumber) !== challenge.tailNumber) {
+    throw new AppError('Returning contact verification failed', 403);
+  }
+  return {
+    ok: true,
+    returningToken: createCheckInToken({
+      channel: 'returning-verified',
+      customerId: customer.id,
+      tailNumber: challenge.tailNumber,
+    }, env.checkinSecret),
   };
 });
 
@@ -309,7 +358,17 @@ router.post('/checkin/orders', async ({ body, req }) => {
   if (payload.source && payload.source !== 'kiosk' && payload.source !== 'kiosk-checkin') {
     throw new AppError('Invalid check-in order source', 400);
   }
-  const item = await createOrder(buildCheckInOrderPayload(payload));
+  const returning = payload.returningToken
+    ? verifyCheckInToken(payload.returningToken, env.checkinSecret)
+    : null;
+  if (payload.returningToken && returning?.channel !== 'returning-verified') {
+    throw new AppError('Valid returning contact verification required', 403);
+  }
+  const item = await createOrder(buildCheckInOrderPayload({
+    ...payload,
+    customerId: returning?.customerId || payload.customerId,
+    tailNumber: returning?.tailNumber || payload.tailNumber,
+  }));
   auditEvent('checkin.order.created', {
     req,
     actor: 'public-kiosk',
@@ -720,6 +779,20 @@ function sanitizeCheckInCustomerMutation(customer) {
     tailNumber: customer.tailNumber || '',
     aircraftType: customer.aircraftType || '',
   };
+}
+
+function maskEmail(value) {
+  const email = String(value || '').trim();
+  const at = email.indexOf('@');
+  if (at <= 0) return '';
+  const local = email.slice(0, at);
+  return `${local.slice(0, 1)}${'•'.repeat(Math.min(Math.max(local.length - 1, 2), 6))}${email.slice(at)}`;
+}
+
+function maskPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length < 4) return '';
+  return `•••-•••-${digits.slice(-4)}`;
 }
 
 function buildCheckInCustomerPayload(payload) {

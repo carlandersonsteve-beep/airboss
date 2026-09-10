@@ -67,7 +67,8 @@ Before first real use, confirm:
 - `/change-password` works and reissues the session correctly
 - Old session is revoked on password change/logout
 - Login throttling is enabled with deliberate non-zero limits
-- Public kiosk lookup does not disclose whether a customer record exists or return stored contact details
+- Returning-aircraft lookup returns only masked contact hints; full stored contact details never reach the kiosk browser
+- Reusing stored contact details requires the saved phone number's last four digits and a short-lived signed token
 - Kiosk session, lookup, and write throttles are enabled with deliberate non-zero limits
 - Ramp cannot close billing orders and Office cannot rewrite fuel completion values
 - Fuel orders cannot reach Front Desk without actual gallons and required variance notes

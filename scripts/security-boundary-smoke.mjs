@@ -90,10 +90,40 @@ for (const sensitiveField of ['pilotName', 'email', 'phone', 'company', 'ownerNa
 result.checks.kioskMutationResponseRedacted = true;
 
 const lookup = await expectStatus(`/checkin/lookup?tail=${encodeURIComponent(tailNumber)}`, 200, { jar: kioskJar });
-assert.equal(lookup.json.matched, false);
-assert.equal(lookup.json.match, null);
-assert.equal(lookup.json.privacyMode, 'contact-reentry-required');
-result.checks.tailLookupDoesNotRevealCustomerExistenceOrPii = true;
+assert.equal(lookup.json.matched, true);
+assert.equal(lookup.json.privacyMode, 'verified-returning-contact');
+assert.equal(lookup.json.match.customer.maskedPhone, '•••-•••-0199');
+assert.equal(JSON.stringify(lookup.json).includes('605-555-0199'), false);
+assert.equal(JSON.stringify(lookup.json).includes(`private+${suffix.toLowerCase()}@example.com`), false);
+await expectStatus('/checkin/verify-returning', 403, {
+  jar: kioskJar,
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ challengeToken: lookup.json.match.challengeToken, phoneLastFour: '0000' }),
+});
+const verifiedReturning = await expectStatus('/checkin/verify-returning', 200, {
+  jar: kioskJar,
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ challengeToken: lookup.json.match.challengeToken, phoneLastFour: '0199' }),
+});
+assert.ok(verifiedReturning.json.returningToken);
+const reusedOrder = await expectStatus('/checkin/orders', 200, {
+  jar: kioskJar,
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    customerId: 'attacker-controlled-customer-id',
+    returningToken: verifiedReturning.json.returningToken,
+    tailNumber,
+    aircraftType: 'Pilatus PC-12',
+    hangarOvernight: 'no',
+    services: [],
+    source: 'kiosk-checkin',
+  }),
+});
+assert.equal(reusedOrder.json.item.customerId, customerId);
+result.checks.returningLookupMasksPiiAndRequiresPhoneVerification = true;
 
 const orderCreate = await expectStatus('/checkin/orders', 200, {
   jar: kioskJar,
