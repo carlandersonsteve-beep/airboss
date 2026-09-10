@@ -123,9 +123,16 @@ alter table thread_reads enable row level security;
 alter table app_users enable row level security;
 alter table app_sessions enable row level security;
 
-revoke all privileges on all tables in schema public from anon;
-revoke all privileges on all tables in schema public from authenticated;
-
-alter default privileges for role postgres in schema public revoke all on tables from anon;
-alter default privileges for role postgres in schema public revoke all on tables from authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    execute 'revoke all privileges on all tables in schema public from anon';
+    execute 'alter default privileges for role postgres in schema public revoke all on tables from anon';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute 'revoke all privileges on all tables in schema public from authenticated';
+    execute 'alter default privileges for role postgres in schema public revoke all on tables from authenticated';
+  end if;
+end
+$$;
 `;
