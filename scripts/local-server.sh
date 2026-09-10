@@ -34,15 +34,21 @@ start_server() {
   cd "$ROOT_DIR"
   nohup env PORT="$PORT_VALUE" node --env-file-if-exists=.env server/index.js >>"$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
-  sleep 1
+  for _ in $(seq 1 30); do
+    if ! is_running; then
+      echo "GroundCore failed to start. Check $LOG_FILE" >&2
+      exit 1
+    fi
+    if curl --silent --fail "http://127.0.0.1:$PORT_VALUE/health" >/dev/null; then
+      echo "GroundCore started on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
+      echo "Log: $LOG_FILE"
+      return 0
+    fi
+    sleep 1
+  done
 
-  if is_running; then
-    echo "GroundCore started on http://localhost:$PORT_VALUE (PID $(cat "$PID_FILE"))"
-    echo "Log: $LOG_FILE"
-  else
-    echo "GroundCore failed to start. Check $LOG_FILE" >&2
-    exit 1
-  fi
+  echo "GroundCore did not become ready within 30 seconds. Check $LOG_FILE" >&2
+  exit 1
 }
 
 stop_server() {
