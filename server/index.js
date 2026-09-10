@@ -16,7 +16,6 @@ import {
   createOrder,
   createOrderMessage,
   deleteAlert,
-  findReturningCheckInMatch,
   getAppSession,
   getAppUserByUsername,
   listAlerts,
@@ -34,6 +33,7 @@ import { securityHeaders } from './lib/security.js';
 
 const router = createRouter();
 const loginThrottleState = new Map();
+const checkInThrottleState = new Map();
 
 router.get('/health', async () => {
   const readiness = await getReadiness();
@@ -79,6 +79,7 @@ router.get('/orders', async ({ req }) => {
 });
 
 router.get('/checkin/session', async ({ req }) => {
+  enforceCheckInRateLimit(req, 'session');
   validateCheckInOrigin(req);
   const token = createCheckInToken({ channel: 'public-kiosk' }, env.checkinSecret);
   return {
@@ -90,17 +91,20 @@ router.get('/checkin/session', async ({ req }) => {
 });
 
 router.get('/checkin/lookup', async ({ requestUrl, req }) => {
+  enforceCheckInRateLimit(req, 'lookup');
   requireCheckInSession(req);
   const tail = requestUrl.searchParams.get('tail') || '';
   const normalizedTail = normalizeTailNumber(tail);
-  const match = await findReturningCheckInMatch(normalizedTail);
-
+  if (!/^[A-Z0-9]{2,10}$/.test(normalizedTail)) {
+    throw new AppError('Invalid tail number', 400);
+  }
   return {
     ok: true,
     tail,
     normalizedTail,
-    matched: Boolean(match),
-    match: sanitizeCheckInMatch(match),
+    matched: false,
+    match: null,
+    privacyMode: 'contact-reentry-required',
   };
 });
 
@@ -278,16 +282,13 @@ router.post('/orders', async ({ body, req }) => {
 });
 
 router.post('/checkin/customers', async ({ body, req }) => {
+  enforceCheckInRateLimit(req, 'write');
   requireCheckInSession(req);
   const payload = body || {};
   if (payload.source && payload.source !== 'kiosk') {
     throw new AppError('Invalid check-in customer source', 400);
   }
-  const item = await createCustomer({
-    ...payload,
-    id: payload.id || crypto.randomUUID(),
-    source: 'kiosk',
-  });
+  const item = await createCustomer(buildCheckInCustomerPayload(payload));
   auditEvent('checkin.customer.created', {
     req,
     actor: 'public-kiosk',
@@ -297,22 +298,18 @@ router.post('/checkin/customers', async ({ body, req }) => {
   });
   return {
     ok: true,
-    item,
+    item: sanitizeCheckInCustomerMutation(item),
   };
 });
 
 router.post('/checkin/orders', async ({ body, req }) => {
+  enforceCheckInRateLimit(req, 'write');
   requireCheckInSession(req);
   const payload = body || {};
   if (payload.source && payload.source !== 'kiosk' && payload.source !== 'kiosk-checkin') {
     throw new AppError('Invalid check-in order source', 400);
   }
-  const item = await createOrder({
-    ...payload,
-    id: payload.id || crypto.randomUUID(),
-    status: payload.status || 'pending',
-    source: 'kiosk-checkin',
-  });
+  const item = await createOrder(buildCheckInOrderPayload(payload));
   auditEvent('checkin.order.created', {
     req,
     actor: 'public-kiosk',
@@ -432,10 +429,8 @@ router.delete(/^\/alerts\/([^/]+)$/, async ({ params, req }) => {
 });
 
 router.patch(/^\/orders\/([^/]+)$/, async ({ params, body, req }) => {
-  const session = env.databaseUrl
-    ? await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP'])
-    : getSessionTokenPayload(req);
-  const item = await updateOrder(params[0], body || {});
+  const session = await requireSession(req, ['ADMIN', 'OFFICE', 'RAMP']);
+  const item = await updateOrder(params[0], body || {}, { actorRole: session.role });
   auditEvent('order.updated', {
     req,
     actor: session?.username || session?.role || 'local',
@@ -575,7 +570,7 @@ function auditEvent(event, details = {}) {
 }
 
 function getLoginThrottleStatus(username, req) {
-  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) {
+  if (env.loginRateLimitMaxAttempts <= 0) {
     return { blocked: false, retryAfterSeconds: 0 };
   }
 
@@ -591,11 +586,12 @@ function getLoginThrottleStatus(username, req) {
 }
 
 function recordLoginFailure(username, req) {
-  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) {
+  if (env.loginRateLimitMaxAttempts <= 0) {
     return { blocked: false, retryAfterSeconds: 0 };
   }
 
   const now = Date.now();
+  pruneLoginThrottleState(now);
   const key = getLoginThrottleKey(username, req);
   const state = getThrottleEntry(key) || { attempts: [], blockedUntil: 0 };
   state.attempts = state.attempts.filter((ts) => now - ts <= env.loginRateLimitWindowMs);
@@ -613,7 +609,7 @@ function recordLoginFailure(username, req) {
 }
 
 function clearLoginThrottle(username, req) {
-  if (!env.databaseUrl || env.loginRateLimitMaxAttempts <= 0) return;
+  if (env.loginRateLimitMaxAttempts <= 0) return;
   loginThrottleState.delete(getLoginThrottleKey(username, req));
 }
 
@@ -635,6 +631,17 @@ function getThrottleEntry(key) {
 
 function getLoginThrottleKey(username, req) {
   return `${String(username || '').trim().toLowerCase()}::${getRequestIp(req)}`;
+}
+
+function pruneLoginThrottleState(now = Date.now()) {
+  if (loginThrottleState.size < 1000) return;
+  const cutoff = now - Math.max(env.loginRateLimitWindowMs, env.loginRateLimitBlockMs);
+  for (const [key, state] of loginThrottleState) {
+    const latestAttempt = Math.max(0, ...(state.attempts || []));
+    const latestActivity = Math.max(latestAttempt, state.blockedUntil || 0);
+    if (latestActivity < cutoff) loginThrottleState.delete(key);
+  }
+  trimOldestMapEntries(loginThrottleState, 5000);
 }
 
 function getSessionTokenPayload(req) {
@@ -706,20 +713,148 @@ function requireCheckInSession(req) {
   return session;
 }
 
-function sanitizeCheckInMatch(match) {
-  if (!match?.customer) return null;
+function sanitizeCheckInCustomerMutation(customer) {
+  if (!customer) return null;
   return {
-    matched: true,
-    normalizedTail: match.normalizedTail,
-    customer: {
-      tailNumber: match.customer.tailNumber || '',
-      aircraftType: match.customer.aircraftType || '',
-      pilotName: match.customer.pilotName || '',
-      email: match.customer.email || '',
-      phone: match.customer.phone || '',
-      company: match.customer.company || '',
-    },
+    id: customer.id,
+    tailNumber: customer.tailNumber || '',
+    aircraftType: customer.aircraftType || '',
   };
+}
+
+function buildCheckInCustomerPayload(payload) {
+  const tailNumber = validateCheckInTail(payload.tailNumber);
+  const aircraftType = cleanCheckInText(payload.aircraftType, 'aircraftType', { required: true, maxLength: 100 });
+  const pilotName = cleanCheckInText(payload.pilotName, 'pilotName', { required: true, maxLength: 120 });
+  const email = cleanCheckInText(payload.email, 'email', { required: true, maxLength: 254 }).toLowerCase();
+  const phone = cleanCheckInText(payload.phone, 'phone', { required: true, maxLength: 40 });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new AppError('Invalid email address', 400);
+  }
+  if (phone.replace(/\D/g, '').length < 10 || phone.replace(/\D/g, '').length > 15) {
+    throw new AppError('Invalid phone number', 400);
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    tailNumber,
+    aircraftType,
+    pilotName,
+    email,
+    phone,
+    company: cleanCheckInText(payload.company, 'company', { maxLength: 160 }),
+    source: 'kiosk',
+  };
+}
+
+function buildCheckInOrderPayload(payload) {
+  const customerId = cleanCheckInText(payload.customerId, 'customerId', { required: true, maxLength: 100 });
+  const tailNumber = validateCheckInTail(payload.tailNumber);
+  const aircraftType = cleanCheckInText(payload.aircraftType, 'aircraftType', { required: true, maxLength: 100 });
+  const fuelType = cleanCheckInText(payload.fuelType, 'fuelType', { maxLength: 20 });
+  const fuelRequestedGallons = payload.fuelRequestedGallons ?? payload.fuelQuantity;
+  if (fuelType && (!Number.isFinite(Number(fuelRequestedGallons)) || Number(fuelRequestedGallons) <= 0)) {
+    throw new AppError('Requested fuel gallons must be greater than zero when fuel is selected', 400);
+  }
+  const hangarOvernight = cleanCheckInText(payload.hangarOvernight, 'hangarOvernight', { required: true, maxLength: 10 }).toLowerCase();
+  if (!['yes', 'no'].includes(hangarOvernight)) {
+    throw new AppError('Hangar overnight must be yes or no', 400);
+  }
+  const departureDate = cleanCheckInText(payload.departureDate, 'departureDate', { maxLength: 10 });
+  const departureTime = cleanCheckInText(payload.departureTime, 'departureTime', { maxLength: 8 });
+  if (departureTime && !departureDate) {
+    throw new AppError('Departure date is required when departure time is provided', 400);
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    customerId,
+    tailNumber,
+    aircraftType,
+    status: 'pending',
+    fuelType,
+    fuelRequestedGallons,
+    hangarOvernight,
+    services: validateCheckInServices(payload.services),
+    notes: cleanCheckInText(payload.notes, 'notes', { maxLength: 2000 }),
+    arrivalAt: payload.arrivalAt || payload.arrivalTime,
+    departureDate,
+    departureTime,
+    purpose: cleanCheckInText(payload.purpose, 'purpose', { maxLength: 80 }),
+    source: 'kiosk-checkin',
+  };
+}
+
+function validateCheckInTail(value) {
+  const tailNumber = normalizeTailNumber(value);
+  if (!/^[A-Z0-9]{2,10}$/.test(tailNumber)) {
+    throw new AppError('Invalid tail number', 400);
+  }
+  return tailNumber;
+}
+
+function cleanCheckInText(value, fieldName, { required = false, maxLength = 500 } = {}) {
+  const clean = String(value ?? '').trim();
+  if (required && !clean) {
+    throw new AppError(`Missing required field: ${fieldName}`, 400);
+  }
+  if (clean.length > maxLength) {
+    throw new AppError(`${fieldName} is too long`, 400, { maxLength });
+  }
+  return clean;
+}
+
+function validateCheckInServices(value) {
+  const allowed = new Set(['lav', 'gpu', 'oxygen', 'deice', 'tiedown', 'crew_car', 'coffee', 'ice']);
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > allowed.size || value.some((service) => !allowed.has(service))) {
+    throw new AppError('Invalid service selection', 400);
+  }
+  return [...new Set(value)];
+}
+
+function enforceCheckInRateLimit(req, action) {
+  const limits = {
+    session: env.checkInSessionRateLimit,
+    lookup: env.checkInLookupRateLimit,
+    write: env.checkInWriteRateLimit,
+  };
+  const limit = Number(limits[action] || 0);
+  if (limit <= 0) return;
+
+  const now = Date.now();
+  pruneCheckInThrottleState(now);
+  const key = `${action}::${getRequestIp(req)}`;
+  const windowStart = now - env.checkInRateLimitWindowMs;
+  const attempts = (checkInThrottleState.get(key) || []).filter((timestamp) => timestamp >= windowStart);
+  if (attempts.length >= limit) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((attempts[0] + env.checkInRateLimitWindowMs - now) / 1000));
+    throw new AppError('Too many kiosk requests. Please wait or contact the front desk.', 429, {
+      retryAfterSeconds,
+      action,
+    });
+  }
+
+  attempts.push(now);
+  checkInThrottleState.set(key, attempts);
+}
+
+function pruneCheckInThrottleState(now = Date.now()) {
+  if (checkInThrottleState.size < 1000) return;
+  const cutoff = now - env.checkInRateLimitWindowMs;
+  for (const [key, attempts] of checkInThrottleState) {
+    const latestAttempt = Math.max(0, ...(attempts || []));
+    if (latestAttempt < cutoff) checkInThrottleState.delete(key);
+  }
+  trimOldestMapEntries(checkInThrottleState, 5000);
+}
+
+function trimOldestMapEntries(map, maximumEntries) {
+  while (map.size > maximumEntries) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey === undefined) break;
+    map.delete(oldestKey);
+  }
 }
 
 function validateCheckInOrigin(req) {

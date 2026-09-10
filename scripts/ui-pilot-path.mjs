@@ -5,10 +5,10 @@ import path from 'node:path';
 import { chromium, request as playwrightRequest } from 'playwright';
 
 const baseUrl = process.env.UI_SMOKE_BASE_URL || 'http://127.0.0.1:8797';
-const rampUsername = process.env.UI_SMOKE_RAMP_USERNAME || 'ramp';
-const rampTempPassword = process.env.UI_SMOKE_RAMP_PASSWORD || 'groundcore-ramp';
-const officeUsername = process.env.UI_SMOKE_OFFICE_USERNAME || 'tacie';
-const officeTempPassword = process.env.UI_SMOKE_OFFICE_PASSWORD || 'groundcore-tacie';
+const rampUsername = process.env.UI_SMOKE_RAMP_USERNAME || 'smoke-ui-ramp';
+const rampTempPassword = process.env.UI_SMOKE_RAMP_PASSWORD || 'groundcore-smoke-ui-ramp';
+const officeUsername = process.env.UI_SMOKE_OFFICE_USERNAME || 'smoke-ui-office';
+const officeTempPassword = process.env.UI_SMOKE_OFFICE_PASSWORD || 'groundcore-smoke-ui-office';
 const screenshotDir = process.env.UI_SMOKE_SCREENSHOT_DIR || path.resolve('tmp/ui-smoke');
 const timestamp = Date.now();
 const suffix = String(timestamp).slice(-6);
@@ -41,25 +41,20 @@ async function resetSeedUsers() {
   return false;
 }
 
-async function ensurePassword(username, currentPassword, newPassword) {
-  const response = await api.post('/change-password', {
-    data: {
-      username,
-      currentPassword,
-      newPassword,
-    },
-  });
-  if (!response.ok()) {
-    const body = await response.text();
-    throw new Error(`Unable to set password for ${username}: ${response.status()} ${body}`);
-  }
-}
-
-async function login(page, username, password) {
+async function loginAndRotatePassword(page, username, temporaryPassword, newPassword) {
   await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
   await page.getByPlaceholder('Enter assigned username').fill(username);
-  await page.getByPlaceholder('Enter password').fill(password);
+  await page.getByPlaceholder('Enter password').fill(temporaryPassword);
   await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.getByText('Set Your Password').waitFor({ timeout: 20000 });
+  await page.getByPlaceholder('Enter current temporary password').fill(temporaryPassword);
+  await page.getByPlaceholder('At least 12 characters').fill(newPassword);
+  await page.getByPlaceholder('Repeat new password').fill(newPassword);
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'networkidle', timeout: 20000 }),
+    page.getByRole('button', { name: 'Save Password & Continue' }).click(),
+  ]);
+  await page.getByRole('button', { name: /^RAMP/ }).waitFor({ timeout: 20000 });
   await page.getByText('Shared backend connected').waitFor({ timeout: 20000 });
 }
 
@@ -97,13 +92,21 @@ async function createKioskOrder(page, { tail, pilotName, notes, expectReturning 
   await page.getByText('Check-In Complete!').waitFor({ timeout: 15000 });
 }
 
-async function verifyReturningLookup(page, tail) {
+async function verifyReturningLookupPrivacy(page, tail) {
   await page.goto(`${baseUrl}/kiosk.html`, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Start Check-In' }).click();
   await page.getByPlaceholder('N12345').first().fill(tail);
   await page.getByRole('button', { name: /Find Aircraft/ }).click();
-  await page.getByText('Returning Aircraft Found').waitFor({ timeout: 10000 });
-  checks.kioskReturningLookupUi = true;
+  await page.getByText('Aircraft & Contact Information').waitFor({ timeout: 10000 });
+  await assertInputEmpty(page, 'John Smith');
+  await assertInputEmpty(page, 'john@example.com');
+  await assertInputEmpty(page, '605-555-1234');
+  checks.kioskReturningLookupProtectsContactUi = true;
+}
+
+async function assertInputEmpty(page, placeholder) {
+  const value = await page.getByPlaceholder(placeholder).inputValue();
+  if (value !== '') throw new Error(`Expected ${placeholder} to remain blank during privacy-safe lookup`);
 }
 
 async function findOrderCard(page, tail, notesText = null) {
@@ -148,11 +151,10 @@ try {
   checks.kioskSeedCheckinUi = true;
   await shot(kioskPage, '01-kiosk-checkin-complete');
 
-  await verifyReturningLookup(kioskPage, tailNumber);
-  await shot(kioskPage, '02-kiosk-returning-lookup');
+  await verifyReturningLookupPrivacy(kioskPage, tailNumber);
+  await shot(kioskPage, '02-kiosk-private-returning-lookup');
 
-  await ensurePassword(rampUsername, rampTempPassword, rampPassword);
-  await login(rampPage, rampUsername, rampPassword);
+  await loginAndRotatePassword(rampPage, rampUsername, rampTempPassword, rampPassword);
   checks.rampLoginUi = true;
   const backToQueue = rampPage.getByRole('button', { name: /Back to Ramp Queue/ });
   if (await backToQueue.isVisible().catch(() => false)) {
@@ -184,8 +186,7 @@ try {
   checks.rampCompletedToDeskUi = true;
   await shot(rampPage, '05-ramp-handoff-complete');
 
-  await ensurePassword(officeUsername, officeTempPassword, officePassword);
-  await login(officePage, officeUsername, officePassword);
+  await loginAndRotatePassword(officePage, officeUsername, officeTempPassword, officePassword);
   checks.officeLoginUi = true;
   await officePage.getByRole('button', { name: /^FRONT DESK/ }).click();
   const officeCard = await findOrderCard(officePage, tailNumber);

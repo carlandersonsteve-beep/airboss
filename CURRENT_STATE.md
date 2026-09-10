@@ -1,86 +1,68 @@
-# Current State — GroundCore (updated 2026-04-24)
+# Current State — GroundCore / Flightline OS
 
-## App Structure
-- `index.html` — main ops interface (ramp + front desk views, auth/session wiring, extracted component loading)
-- `kiosk.html` — customer self-check-in kiosk
-- `server/` — Node backend with local file-store mode and shared/Postgres mode when `DATABASE_URL` is configured
-- `src/` — extracted UI components, runtime bridge, domain/service layers
-- `assets/` — media / icons
+_Updated: 2026-09-10_
 
-## How to Run
+GroundCore is the repository and system identity. **Flightline OS** is the operator-facing product name shown in the browser and installed PWA.
+
+## Readiness summary
+
+The application is locally pilot-capable and has a working shared/Postgres path. It is not approved for real customer data until the current security changes are deployed to staging and the hosted verification suite passes.
+
+## Verified capabilities
+
+- Cookie-backed staff sessions with server-side revocation
+- Forced first-login password rotation
+- Role-aware Ramp, Office, and Admin surfaces
+- Login throttling and public-kiosk rate limiting
+- Privacy-safe kiosk check-in with server-generated identifiers and field whitelisting
+- Canonical order workflow: `pending` → `in_progress` → `ready_for_front_desk` → `closed`
+- Server-enforced role transitions and fuel-completion integrity
+- Cross-role order threads and persisted read state
+- Kiosk → Ramp → Front Desk → finalize workflow
+- Shared/Postgres persistence and concurrency coverage
+- CSP, security headers, explicit CORS configuration, and secure-cookie support
+- Audit logging for authentication, check-in, messaging, reads, and order changes
+
+## Verification status
+
+Passing locally on 2026-09-10:
+
+- Auth cookie issuance, logout, and revoked-session rejection
+- Forced password gate
+- Login throttling
+- Adversarial kiosk/privacy/role/fuel boundary checks
+- Full API pilot path
+- Multi-user concurrency/read-state path
+- Full Playwright browser workflow with screenshots
+- Node syntax checks and shell syntax checks
+- `npm audit`: zero known production or development dependency vulnerabilities
+
+## Deliberate privacy behavior
+
+Entering a known tail number at the public kiosk does **not** reveal whether Mustang has a matching customer record and does not prefill pilot name, email, phone, or company. Customers re-enter contact details for each check-in. The backend still merges the submission into the canonical tail record without exposing the prior record to the browser.
+
+## Remaining gates before two-person walkthrough
+
+1. Commit and push the current security/readiness work.
+2. Deploy the current branch to a staging Render/Supabase environment.
+3. Configure unique hosted secrets, exact allowed origins, TLS, and explicit pilot credentials.
+4. Run the hosted API smoke suite against staging.
+5. Run the Playwright UI workflow against staging.
+6. Clear old test records so the walkthrough starts with a clean operational board.
+
+## Remaining limitations
+
+- Customer completion email is still a client-side `mailto:` draft; delivery is not server-verified.
+- Kiosk and login throttles are in memory and assume a single application instance.
+- Fuel prices remain hardcoded.
+- Human testing is still required on the actual kiosk/mobile hardware for touch behavior, PWA install, audio permissions, and practical scanability.
+- A production backup/restore and retention policy for customer data must be documented and tested before broad use.
+
+## Normal local verification
+
 ```bash
-bash scripts/local-server.sh restart
+npm run local:start
+npm run smoke:local
+npm run db:seed-smoke-users
+UI_SMOKE_BASE_URL=http://127.0.0.1:8792 npm run smoke:ui-pilot-path
 ```
-Starts server at http://localhost:8792.
-
-## Current Capabilities
-- Customer check-in via kiosk
-- Shared-mode backend support with role-based auth
-- Service orders with ramp workflow:
-  - pending
-  - in_progress
-  - ready_for_front_desk
-  - closed/finalized
-- Focused ramp service panel
-- Front Desk ready-to-bill queue
-- Front Desk active service chat section (newer workflow direction)
-- Order-level message threads intended to replace radios
-- Finalize flow with customer completion-email draft behavior
-- Fuel meter start/end capture during completion flow
-- Fuel-type visual differentiation (JET-A vs 100LL styling)
-
-## Important Current Truths
-- Shared mode is active when `DATABASE_URL` exists.
-- Browser session state can still make auth failures look like backend failures.
-- Kiosk create path was repaired on 2026-04-24 to allow consistent kiosk source handling and automatic ID generation.
-- Dummy traffic was successfully seeded after the kiosk create-path repair.
-- Active service coordination is now being treated as a first-class workflow, not a side note on the ready-to-bill card.
-- Service chat now renders with stronger aircraft context (tail number fallback + sender name persistence).
-- Front Desk Active Service Chat is now restricted to true `in_progress` aircraft rather than all ramp-active statuses.
-- Fuel prices are temporarily surfaced as a compact info strip under the page header on Ramp and Front Desk.
-
-## Current Workflow Direction
-GroundCore is moving toward two distinct front-desk surfaces:
-1. **Active Service Chat**
-   - always-open
-   - grouped by tail number
-   - live ramp ↔ desk coordination
-   - intended to replace radios
-2. **Ready to Bill**
-   - finalized handoff context
-   - fuel summary
-   - finalize / email / billing actions
-
-## Known Weak Points / Tech Debt
-- `index.html` remains large and still mixes runtime wiring with extracted component loading.
-- Extracted component cache-busting matters; stale browser JS caused repeated confusion during recent fixes.
-- Message identity formatting is improved, but read-state semantics and concurrency behavior still need more hard testing.
-- Repo docs were stale and needed manual refresh.
-- Fuel prices are currently hardcoded and should eventually move to admin/config.
-
-## Pilot Readiness Snapshot (2026-04-24)
-
-### PASS
-- Shared backend is up and schema-ready.
-- Front Desk Active Service Chat is restricted to true `in_progress` aircraft.
-- Service chat identity persistence path exists for `senderName` + `tailNumber`.
-- Ramp queue now explicitly sorts by departure priority, then creation time.
-- Kiosk note path now exists and writes into `order.notes`.
-
-### FAIL / Known Issue
-- General chat horse-whinny notification is still blocked by browser audio permission behavior in some flows.
-
-### NEEDS HUMAN CHECK
-- Full kiosk submit flow in live browser use.
-- Kiosk note visibly appearing on ramp/service surfaces after real submit.
-- Desk ↔ ramp service chat after refresh in real use.
-- Finalize/handoff flow under actual clicking.
-- Ramp card visual scanability in real use.
-- Same-aircraft concurrency behavior with two live users.
-
-## Next Recommended Steps
-1. Run the minimum human pilot-prep test set (kiosk note → ramp → desk chat → complete → finalize → refresh).
-2. Clean up status semantics so legacy labels stop leaking through (`ready`, `finalized`, `in-progress` vs canonical values).
-3. Tighten handoff / finalize clarity on Front Desk.
-4. Hard-test read-state and concurrency edge cases.
-5. Move fuel prices into config/admin once the workflow stabilizes.

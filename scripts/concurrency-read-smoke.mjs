@@ -116,27 +116,29 @@ async function loginWithFallback(label, candidates, usedUsernames = new Set()) {
 }
 
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
-const tailNumber = `NCR${suffix}`;
-const customerId = `cust-concurrency-${suffix.toLowerCase()}`;
-const orderId = `ord-concurrency-${suffix.toLowerCase()}`;
+const tailNumber = `NCR${suffix.slice(0, 6)}`;
+const requestedCustomerId = `cust-concurrency-${suffix.toLowerCase()}`;
+const requestedOrderId = `ord-concurrency-${suffix.toLowerCase()}`;
+let customerId = requestedCustomerId;
+let orderId = requestedOrderId;
 const departureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 const result = {
   ok: true,
   baseUrl,
   tailNumber,
-  orderId,
+  orderId: null,
   checks: {},
 };
 
 const kioskJar = makeJar();
 await expectOk('/checkin/session', { jar: kioskJar });
-await expectOk('/checkin/customers', {
+const customerCreate = await expectOk('/checkin/customers', {
   jar: kioskJar,
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    id: customerId,
+    id: requestedCustomerId,
     tailNumber,
     aircraftType: 'Pilatus PC-12',
     pilotName: 'Concurrency Smoke Pilot',
@@ -146,17 +148,19 @@ await expectOk('/checkin/customers', {
     source: 'kiosk',
   }),
 });
-await expectOk('/checkin/orders', {
+customerId = customerCreate.json.item.id;
+const orderCreate = await expectOk('/checkin/orders', {
   jar: kioskJar,
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    id: orderId,
+    id: requestedOrderId,
     customerId,
     tailNumber,
     aircraftType: 'Pilatus PC-12',
     fuelType: 'JET-A',
     fuelRequestedGallons: 90,
+    hangarOvernight: 'no',
     services: ['crew_car'],
     notes: 'Concurrency/read-state smoke order',
     arrivalTime: new Date().toISOString(),
@@ -166,6 +170,8 @@ await expectOk('/checkin/orders', {
     status: 'pending',
   }),
 });
+orderId = orderCreate.json.item.id;
+result.orderId = orderId;
 result.checks.kioskOrderCreated = true;
 
 const usedRampUsers = new Set();

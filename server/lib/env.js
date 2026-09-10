@@ -31,6 +31,10 @@ export const env = {
   loginRateLimitWindowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000),
   loginRateLimitMaxAttempts: Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS || 5),
   loginRateLimitBlockMs: Number(process.env.LOGIN_RATE_LIMIT_BLOCK_MS || 15 * 60 * 1000),
+  checkInRateLimitWindowMs: Number(process.env.CHECKIN_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
+  checkInSessionRateLimit: Number(process.env.CHECKIN_SESSION_RATE_LIMIT || 60),
+  checkInLookupRateLimit: Number(process.env.CHECKIN_LOOKUP_RATE_LIMIT || 30),
+  checkInWriteRateLimit: Number(process.env.CHECKIN_WRITE_RATE_LIMIT || 40),
 };
 
 if (env.databaseUrl && env.sessionSecret === defaultSessionSecret) {

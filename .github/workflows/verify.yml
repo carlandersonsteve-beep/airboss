@@ -1,0 +1,88 @@
+name: Verify GroundCore
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/groundcore
+      DATABASE_SSL_MODE: disable
+      SESSION_SECRET: ci-session-secret-groundcore-verification-only
+      CHECKIN_SECRET: ci-checkin-secret-groundcore-verification-only
+      ALLOWED_ORIGINS: http://127.0.0.1:8792
+      HOST: 127.0.0.1
+      PORT: 8792
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: groundcore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d groundcore"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Validate source syntax
+        run: |
+          node --check server/index.js
+          node --check server/lib/orderPolicy.js
+          node --check server/lib/router.js
+          node --check server/db/repositories.js
+          node --check scripts/security-boundary-smoke.mjs
+          node --check scripts/checkin-throttle-smoke.mjs
+          bash -n scripts/local-server.sh scripts/local-smoke.sh scripts/hosted-smoke.sh
+
+      - name: Run API and security smoke suite
+        run: |
+          npm run local:start
+          npm run smoke:local
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser workflow smoke
+        run: |
+          npm run local:restart
+          npm run db:cleanup-smoke
+          npm run db:seed-smoke-users
+          UI_SMOKE_BASE_URL=http://127.0.0.1:8792 npm run smoke:ui-pilot-path
+          npm run db:cleanup-smoke
+
+      - name: Upload browser screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-screenshots
+          path: tmp/ui-smoke
+          if-no-files-found: ignore

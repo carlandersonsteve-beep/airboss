@@ -1,6 +1,6 @@
-# GroundCore
+# Flightline OS (GroundCore)
 
-GroundCore is a standalone FBO operations system.
+Flightline OS is a standalone FBO operations system. The repository and backend retain the GroundCore project name.
 
 It is intended to manage:
 - aircraft arrivals

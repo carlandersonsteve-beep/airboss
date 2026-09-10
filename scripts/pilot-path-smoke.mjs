@@ -130,8 +130,10 @@ async function loginWithFallback(label, candidates) {
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
 const tailNumber = `N${suffix}`;
 const departureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-const customerId = `cust-smoke-${suffix.toLowerCase()}`;
-const orderId = `ord-smoke-${suffix.toLowerCase()}`;
+const requestedCustomerId = `cust-smoke-${suffix.toLowerCase()}`;
+const requestedOrderId = `ord-smoke-${suffix.toLowerCase()}`;
+let customerId = requestedCustomerId;
+let orderId = requestedOrderId;
 const pilotEmail = `smoke+${suffix.toLowerCase()}@example.com`;
 
 const result = {
@@ -139,8 +141,8 @@ const result = {
   baseUrl,
   origin,
   tailNumber,
-  customerId,
-  orderId,
+  customerId: null,
+  orderId: null,
   checks: {},
 };
 
@@ -154,7 +156,7 @@ assert.equal(preLookup.json.matched, false, `expected no returning-customer matc
 result.checks.preLookupClean = true;
 
 const customerPayload = {
-  id: customerId,
+  id: requestedCustomerId,
   tailNumber,
   aircraftType: 'Pilatus PC-12',
   pilotName: 'Smoke Test Pilot',
@@ -169,16 +171,20 @@ const customerCreate = await expectOk('/checkin/customers', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(customerPayload),
 });
-assert.equal(customerCreate.json.item.id, customerId);
+customerId = customerCreate.json.item.id;
+result.customerId = customerId;
+assert.notEqual(customerId, requestedCustomerId, 'public kiosk must not control persisted customer IDs');
+assert.equal(customerCreate.json.item.email, undefined, 'kiosk mutation response must not echo contact data');
 result.checks.kioskCustomerCreated = true;
 
 const orderPayload = {
-  id: orderId,
+  id: requestedOrderId,
   customerId,
   tailNumber,
   aircraftType: 'Pilatus PC-12',
   fuelType: 'JET-A',
   fuelRequestedGallons: 120,
+  hangarOvernight: 'no',
   services: ['crew_car', 'ice'],
   notes: 'Smoke test arrival via kiosk',
   arrivalTime: new Date().toISOString(),
@@ -193,13 +199,17 @@ const orderCreate = await expectOk('/checkin/orders', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(orderPayload),
 });
-assert.equal(orderCreate.json.item.id, orderId);
+orderId = orderCreate.json.item.id;
+result.orderId = orderId;
+assert.notEqual(orderId, requestedOrderId, 'public kiosk must not control persisted order IDs');
 assert.equal(orderCreate.json.item.status, 'pending');
 result.checks.kioskOrderCreated = true;
 
 const postLookup = await expectOk(`/checkin/lookup?tail=${encodeURIComponent(tailNumber)}`, { jar: kioskJar });
-assert.equal(postLookup.json.matched, true, `expected returning-customer match after create: ${postLookup.text}`);
-result.checks.returningCustomerLookupWorks = true;
+assert.equal(postLookup.json.matched, false, `public lookup must not disclose whether a tail has customer data: ${postLookup.text}`);
+assert.equal(postLookup.json.match, null, `public lookup must not return customer data: ${postLookup.text}`);
+assert.equal(postLookup.json.privacyMode, 'contact-reentry-required');
+result.checks.publicTailLookupProtectsContactData = true;
 
 const ramp = await loginWithFallback('ramp', rampCandidates);
 result.checks.rampLogin = true;

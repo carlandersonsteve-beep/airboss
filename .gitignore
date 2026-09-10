@@ -3,6 +3,8 @@
 node_modules/
 dist/
 build/
+!js/build/
+!js/build/*.js
 server/data/
 tmp/
 .npm-cache/

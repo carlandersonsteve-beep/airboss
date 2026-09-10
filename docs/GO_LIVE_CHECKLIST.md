@@ -39,6 +39,10 @@ Set these explicitly in hosted config:
 - `LOGIN_RATE_LIMIT_WINDOW_MS`
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
 - `LOGIN_RATE_LIMIT_BLOCK_MS`
+- `CHECKIN_RATE_LIMIT_WINDOW_MS`
+- `CHECKIN_SESSION_RATE_LIMIT`
+- `CHECKIN_LOOKUP_RATE_LIMIT`
+- `CHECKIN_WRITE_RATE_LIMIT`
 - `TRUST_PROXY=1` only if your hosted edge strips/spoofs `X-Forwarded-For` safely
 
 Rules:
@@ -63,6 +67,11 @@ Before first real use, confirm:
 - `/change-password` works and reissues the session correctly
 - Old session is revoked on password change/logout
 - Login throttling is enabled with deliberate non-zero limits
+- Public kiosk lookup does not disclose whether a customer record exists or return stored contact details
+- Kiosk session, lookup, and write throttles are enabled with deliberate non-zero limits
+- Ramp cannot close billing orders and Office cannot rewrite fuel completion values
+- Fuel orders cannot reach Front Desk without actual gallons and required variance notes
+- Oversized JSON request bodies are rejected
 - Audit events for auth and order workflow actions are reaching logs
 
 ## 5) User/password launch procedure
@@ -88,8 +97,8 @@ Recommended immediate first-day roles:
 Run these against the hosted URL before real traffic:
 
 ```bash
-# First reset the dedicated smoke users so the password-gate check starts clean.
-npm run db:seed-users
+# First reset only the dedicated smoke users so the password-gate check starts clean.
+npm run db:seed-smoke-users
 
 SMOKE_BASE_URL=https://your-groundcore-host \
 SMOKE_ORIGIN=https://your-groundcore-host \
@@ -118,6 +127,7 @@ Pass criteria:
 - login throttling returns `429` with `Retry-After` after repeated failures
 - kiosk → ramp → office workflow completes
 - same-order concurrency/read-state behavior holds across distinct users
+- kiosk privacy and role boundaries pass the adversarial security smoke
 - closed order persists after refresh
 
 ## 7) Launch-day operator checks

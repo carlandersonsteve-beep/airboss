@@ -5,18 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="GroundCore">
+    <meta name="apple-mobile-web-app-title" content="Flightline OS">
     <meta name="theme-color" content="#8b1e2d">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
-    <title>GroundCore - Mustang Aviation</title>
+    <title>Flightline OS - Mustang Aviation</title>
     <link rel="stylesheet" href="/css/tailwind.generated.css?v=20260519a">
     <script src="/js/vendor/react.production.min.js"></script>
     <script src="/js/vendor/react-dom.production.min.js"></script>
     <style>
         body {
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: radial-gradient(circle at top, rgba(201, 169, 97, 0.18), transparent 35%), linear-gradient(180deg, #4b3728 0%, #2b2017 100%);
+            background-color: #3a2a1d;
+            background-image:
+                linear-gradient(rgba(27, 17, 10, 0.34), rgba(27, 17, 10, 0.34)),
+                radial-gradient(circle at top, rgba(201, 169, 97, 0.16), transparent 40%),
+                url('/assets/kiosk-wood-bg.jpg?v=20260804a');
+            background-position: center center;
+            background-repeat: no-repeat;
             background-size: cover;
             background-attachment: fixed;
         }
@@ -27,7 +33,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.15);
             pointer-events: none;
             z-index: 0;
         }
@@ -111,6 +117,6 @@
         <script src="/js/build/index-RampView.js?v=20260519a"></script>
         <script src="/js/build/index-ServicePanel.js?v=20260519a"></script>
         <script src="/js/build/index-OfficeView.js?v=20260519a"></script>
-        <script src="/js/build/index.app.js?v=20260804g"></script>
+        <script src="/js/build/index.app.js?v=20260910a"></script>
 </body>
 </html>

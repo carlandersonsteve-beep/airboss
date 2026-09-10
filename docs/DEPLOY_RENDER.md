@@ -25,7 +25,7 @@
 
 ## After first deploy
 - Visit `/health`
-- Reset the dedicated smoke users with `npm run db:seed-users`
+- Reset only the dedicated smoke users with `npm run db:seed-smoke-users`
 - Run the hosted smoke wrapper:
   ```bash
   SMOKE_BASE_URL=https://your-groundcore-host \

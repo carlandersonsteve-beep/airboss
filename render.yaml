@@ -25,3 +25,11 @@ services:
         value: require
       - key: TRUST_PROXY
         value: "1"
+      - key: CHECKIN_RATE_LIMIT_WINDOW_MS
+        value: "600000"
+      - key: CHECKIN_SESSION_RATE_LIMIT
+        value: "60"
+      - key: CHECKIN_LOOKUP_RATE_LIMIT
+        value: "30"
+      - key: CHECKIN_WRITE_RATE_LIMIT
+        value: "40"

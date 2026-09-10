@@ -14,6 +14,7 @@ function normalizeFuelValue(value) {
   return Math.round(numeric * 10) / 10;
 }
 import { canTransitionOrder, normalizeOrderStatus } from '../../src/core/workflow.js';
+import { validateOrderMutation } from '../lib/orderPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -342,7 +343,7 @@ export async function createOrder(payload) {
   return mapOrderRow(result.rows[0]);
 }
 
-export async function updateOrder(orderId, patch = {}) {
+export async function updateOrder(orderId, patch = {}, { actorRole = 'ADMIN' } = {}) {
   requireField(orderId, 'orderId');
 
   if (!env.databaseUrl) {
@@ -352,6 +353,7 @@ export async function updateOrder(orderId, patch = {}) {
 
     const current = store.orders[index];
     validateOrderPatch(current, patch);
+    validateOrderMutation(current, patch, actorRole);
     const updated = {
       ...current,
       ...patch,
@@ -369,6 +371,7 @@ export async function updateOrder(orderId, patch = {}) {
 
   const current = mapOrderRow(existing.rows[0]);
   validateOrderPatch(current, patch);
+  validateOrderMutation(current, patch, actorRole);
 
   const fields = [];
   const values = [];

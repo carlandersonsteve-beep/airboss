@@ -3,6 +3,7 @@ import { hashPassword } from '../lib/auth.js';
 
 const allowInsecureDefaultSeedPasswords = ['1', 'true', 'yes', 'on'].includes(String(process.env.ALLOW_INSECURE_DEFAULT_SEED_PASSWORDS || '').trim().toLowerCase());
 const requireExplicitSeedPasswords = process.env.NODE_ENV === 'production' && !allowInsecureDefaultSeedPasswords;
+const smokeOnly = process.argv.includes('--smoke-only');
 
 const USERS = [
   { id: 'usr-admin-1', username: 'steve', password: 'groundcore-steve', role: 'ADMIN', displayName: 'Steve', mustChangePassword: true },
@@ -26,12 +27,15 @@ const USERS = [
   { id: 'usr-smoke-office-2', username: 'smoke-office-b', password: 'groundcore-smoke-office', role: 'OFFICE', displayName: 'Smoke Office B', mustChangePassword: false },
   { id: 'usr-smoke-office-3', username: 'smoke-office-pilot', password: 'groundcore-smoke-office-pilot', role: 'OFFICE', displayName: 'Smoke Office Pilot', mustChangePassword: false },
   { id: 'usr-smoke-password-1', username: 'smoke-password', password: 'groundcore-smoke-password', role: 'RAMP', displayName: 'Smoke Password Gate', mustChangePassword: true },
+  { id: 'usr-smoke-ui-ramp-1', username: 'smoke-ui-ramp', password: 'groundcore-smoke-ui-ramp', role: 'RAMP', displayName: 'Smoke UI Ramp', mustChangePassword: true },
+  { id: 'usr-smoke-ui-office-1', username: 'smoke-ui-office', password: 'groundcore-smoke-ui-office', role: 'OFFICE', displayName: 'Smoke UI Office', mustChangePassword: true },
 ];
 
 async function seedUsers() {
   const seeded = [];
 
-  for (const user of USERS) {
+  const selectedUsers = smokeOnly ? USERS.filter((user) => user.username.startsWith('smoke-')) : USERS;
+  for (const user of selectedUsers) {
     const password = resolveSeedPassword(user);
     const passwordHash = hashPassword(password);
     await query(`

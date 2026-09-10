@@ -1,40 +1,48 @@
-# TODO
+# GroundCore / Flightline OS TODO
 
-## Testing Queue (pre-pilot with Tacie — 2026-03-28)
-- [ ] Full ramp workflow end-to-end: kiosk check-in → ramp sees order → Start Service → Complete → Front Desk close
-- [ ] Verify horse whinny fires on mobile (audio unlock — Tacie's phone)
-- [ ] Verify general chat messages persist across refresh (fixed today — null orderId)
-- [ ] Kiosk check-in: confirm tail number saves correctly on returned aircraft
-- [ ] Kiosk check-in: confirm fuel request decimals save (e.g. 23.5)
-- [ ] Thread read state persists correctly after refresh
-- [ ] Order thread messages visible to both ramp and front desk
-- [ ] Ramp banner count matches actual queue
-- [ ] Front desk "Ready to Bill" count accurate
-- [ ] No snap-back on Start Service (order transition fix verified)
+_Updated: 2026-09-10_
 
-## Next Up
-- [ ] Render + Supabase deployment (so pilot isn't running off Steve's laptop)
-- [ ] Pilot accounts for Lindsey, Neil, John (real credentials, forced password change)
-- [ ] QR check-in flow (placeholder button exists, logic TBD)
-- [ ] Mobile notification sound on order threads (not just general chat)
+## Walkthrough gate
 
-## Parking Lot (post-pilot)
-- Real product definition and feature roadmap
-- Phased refactor: shrink index.html monolith further
-- Remove Google Sheets/Forms sync remnants or formalize
-- Build system / proper module bundler
+- [ ] Commit and push the current security/readiness pass
+- [ ] Deploy staging on Render with Supabase Postgres
+- [ ] Use unique `SESSION_SECRET` and `CHECKIN_SECRET`
+- [ ] Set exact production `ALLOWED_ORIGINS`
+- [ ] Create unique temporary pilot credentials and require first-login rotation
+- [ ] Run `npm run smoke:hosted` successfully against staging
+- [ ] Run the Playwright UI pilot path successfully against staging
+- [ ] Clear synthetic/test orders before the human walkthrough
+- [ ] Conduct the two-person Ramp ↔ Front Desk browser walkthrough
 
-## Done ✅
-- Horse whinny notification sound (Dragon Studio MP3, wired to incoming messages)
-- Fuel quantity decimals preserved on completion
-- Tail-first returning aircraft check-in on kiosk
-- Start Service snap-back fixed (order transition + in-progress gate)
-- Thread reads working locally
-- Local order updates working
-- Auth hardened, local-only backend access
-- Ramp view repaired, scroll fixed, queue counts aligned
-- Front desk filters scoped to ready queue, fuel totals rounded
-- Ramp handoff banner aligned with today count
-- Export/import buttons removed from top bar
-- New Customer button replaced with QR placeholder
-- General chat null orderId bug fixed (was throwing 401/requireField error)
+## Security and privacy follow-through
+
+- [ ] Define customer-data retention and deletion policy
+- [ ] Verify Supabase backup/restore procedure with a non-production restore drill
+- [ ] Decide whether public kiosk throttling needs a shared store before any multi-instance deployment
+- [ ] Add alerting for repeated kiosk/login throttling and unusual authentication failures
+- [ ] Add dependency and smoke checks to CI
+- [ ] Review access logs and audit-event retention before real customer use
+
+## Pilot operations
+
+- [ ] Validate kiosk touch flow on the actual device
+- [ ] Validate PWA installation and cache updates on iPhone/iPad and desktop
+- [ ] Confirm Ramp and Front Desk counts against the same live workload
+- [ ] Verify mobile notification audio after a real user gesture
+- [ ] Decide whether completion email remains a manual draft or moves server-side
+- [ ] Move fuel prices into controlled configuration/admin
+
+## Verified on 2026-09-10
+
+- [x] Full kiosk → Ramp → Front Desk → closed API workflow
+- [x] Full browser workflow with refresh persistence
+- [x] Cross-role messages and read-state persistence
+- [x] Concurrent Ramp and Office sessions
+- [x] Cookie sessions, logout/revocation, and password gate
+- [x] Login throttling
+- [x] Public lookup does not disclose existing customer data
+- [x] Kiosk payload whitelist and server-generated IDs
+- [x] Role-specific order mutation enforcement
+- [x] Server-side actual-fuel, variance-note, and meter validation
+- [x] Oversized JSON request rejection
+- [x] Dependency audit with zero known vulnerabilities

@@ -14,28 +14,39 @@ if [[ -z "$ORIGIN" ]]; then
   exit 1
 fi
 
+cleanup_smoke_data() {
+  npm run db:cleanup-smoke >/dev/null || true
+}
+trap cleanup_smoke_data EXIT
+
 echo "== GroundCore hosted smoke =="
 echo "Base URL: $BASE_URL"
 echo "Origin:   $ORIGIN"
 echo
 
-echo "[1/5] auth-cookie"
+npm run db:cleanup-smoke
+
+echo "[1/6] auth-cookie"
 SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:auth-cookie
 
 echo
-echo "[2/5] password-gate"
+echo "[2/6] password-gate"
 SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:password-gate
 
 echo
-echo "[3/5] login-throttle"
+echo "[3/6] login-throttle"
 SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:login-throttle
 
 echo
-echo "[4/5] pilot-path"
+echo "[4/6] security-boundary"
+SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:security-boundary
+
+echo
+echo "[5/6] pilot-path"
 SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:pilot-path
 
 echo
-echo "[5/5] concurrency"
+echo "[6/6] concurrency"
 SMOKE_BASE_URL="$BASE_URL" SMOKE_ORIGIN="$ORIGIN" npm run smoke:concurrency
 
 echo

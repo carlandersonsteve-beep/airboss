@@ -1,3 +1,7 @@
+import { AppError } from './errors.js';
+
+const MAX_JSON_BODY_BYTES = 64 * 1024;
+
 export function createRouter() {
   const routes = [];
 
@@ -55,7 +59,14 @@ async function parseJsonBody(req) {
   if (req.method === 'GET' || req.method === 'DELETE') return null;
 
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_JSON_BODY_BYTES) {
+      throw new AppError('Request body too large', 413);
+    }
+    chunks.push(chunk);
+  }
   const raw = Buffer.concat(chunks).toString('utf8').trim();
   if (!raw) return null;
 
